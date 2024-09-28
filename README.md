@@ -1,6 +1,6 @@
 # EDINET API Tools :jp:
 
-This project provides a set of tools for interacting with Japan's [https://disclosure2.edinet-fsa.go.jp/](EDINET) (Electronic Disclosure for Investors Network) API v2, processing financial disclosure documents, and experimental tools for analyzing them using OpenAI's language models.
+This project provides a set of tools for interacting with Japan's [EDINET](https://disclosure2.edinet-fsa.go.jp/) (Electronic Disclosure for Investors Network) API v2, processing financial disclosure documents, and experimental tools for analyzing them using OpenAI's language models.
 
 ## Features
 
