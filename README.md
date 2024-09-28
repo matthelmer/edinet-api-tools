@@ -4,10 +4,10 @@ This project provides a set of tools for interacting with Japan's [EDINET](https
 
 ## Features
 
-- Retrieve and filter disclosure documents of any type for specified date ranges
-- Download and process ZIP files containing CSV data
-- Clean and process text data from financial disclosures
-- Analyze financial disclosure data using OpenAI models
+- 📅 Retrieve and filter disclosure documents by type and date range
+- 📂 Download and process ZIP files containing CSV data effortlessly
+- 🧹 Clean and process text data from financial disclosures
+- 🤖 Analyze financial disclosure data using OpenAI models for deeper insights
 
 ## Requirements
 
