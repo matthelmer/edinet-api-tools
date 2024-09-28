@@ -10,7 +10,8 @@ from config import EDINET_API_KEY
 
 
 # API interaction functions
-def fetch_documents_list(date: Union[str, datetime.date], type: int = 2) -> Dict:
+def fetch_documents_list(date: Union[str, datetime.date],
+                         type: int = 2) -> Dict:
     """Retrieve disclosure documents from EDINET API for a specified date."""
     if isinstance(date, str):
         try:
@@ -21,7 +22,7 @@ def fetch_documents_list(date: Union[str, datetime.date], type: int = 2) -> Dict
     elif isinstance(date, datetime.date):
         date_str = date.strftime('%Y-%m-%d')
     else:
-        raise TypeError("Date must be a string ('YYYY-MM-DD') or datetime.date")
+        raise TypeError("Date must be 'YYYY-MM-DD' or datetime.date")
     url = "https://disclosure.edinet-fsa.go.jp/api/v2/documents.json"
     params = {
         "date": date_str,
@@ -63,7 +64,6 @@ def download_documents(docs: List[Dict],
 
     for i, doc in enumerate(docs, 1):
         doc_id = doc['docID']
-        edinet_code = doc['edinetCode']
         doc_type_code = doc['docTypeCode']
         filer = doc['filerName']
 
@@ -80,17 +80,17 @@ def download_documents(docs: List[Dict],
             except Exception as e:
                 print(f"Error downloading {save_name}: {str(e)}")
         else:
-            #print(f"File already exists: {save_name}")
+            # print(f"File already exists: {save_name}")
             pass
     print(f"\nDownloads complete. Files saved to: `{download_dir}`\n")
 
 
 # Document filtering and processing
 def filter_documents(docs: List[Dict],
-                    edinet_codes: Union[List[str], str] = [],
-                    doc_type_codes: Union[List[str], str] = [],
-                    excluded_doc_type_codes: Union[List[str], str] = [],
-                    require_sec_code: bool = True) -> List[Dict]:
+                     edinet_codes: Union[List[str], str] = [],
+                     doc_type_codes: Union[List[str], str] = [],
+                     excluded_doc_type_codes: Union[List[str], str] = [],
+                     require_sec_code: bool = True) -> List[Dict]:
     """Filter list of documents by EDINET codes and document type codes."""
     if isinstance(edinet_codes, str):
         edinet_codes = [edinet_codes]
@@ -100,11 +100,11 @@ def filter_documents(docs: List[Dict],
         excluded_doc_type_codes = [excluded_doc_type_codes]
 
     return [
-        doc for doc in docs
-        if (not edinet_codes or doc['edinetCode'] in edinet_codes) and
-           (not doc_type_codes or doc['docTypeCode'] in doc_type_codes) and
-           (doc['docTypeCode'] not in excluded_doc_type_codes) and
-           (not require_sec_code or doc.get('secCode') is not None)
+        doc for doc in docs if
+        (not edinet_codes or doc['edinetCode'] in edinet_codes) and
+        (not doc_type_codes or doc['docTypeCode'] in doc_type_codes) and
+        (doc['docTypeCode'] not in excluded_doc_type_codes) and
+        (not require_sec_code or doc.get('secCode') is not None)
     ]
 
 

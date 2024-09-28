@@ -7,6 +7,7 @@ import tempfile
 import zipfile
 from typing import List, Dict
 
+
 # Encoding and file reading
 def detect_encoding(file_path):
     with open(file_path, 'rb') as file:
@@ -17,7 +18,9 @@ def detect_encoding(file_path):
 def read_csv_file(file_path):
     encodings = ['utf-16', 'utf-16le', 'utf-16be']
     encodings.append(detect_encoding(file_path))
-    encodings.extend(['utf-8', 'iso-8859-1', 'windows-1252', 'shift-jis', 'euc-jp'])
+    encodings.extend(
+        ['utf-8', 'iso-8859-1', 'windows-1252', 'shift-jis', 'euc-jp']
+    )
     for encoding in encodings:
         try:
             df = pd.read_csv(file_path, encoding=encoding, sep='\t')
@@ -55,8 +58,10 @@ def process_csv_file(file_path):
         'jpdei_cor:FilerNameInEnglishDEI': 'company_name_en',
         'jpdei_cor:DocumentTypeDEI': 'document_type',
         'jpcrp-esr_cor:DocumentTitleCoverPage': 'document_title',
-        'jpcrp-esr_cor:TitleAndNameOfRepresentativeCoverPage': 'representative',
-        'jpcrp-esr_cor:AddressOfRegisteredHeadquarterCoverPage': 'headquarters_address',
+        'jpcrp-esr_cor:TitleAndNameOfRepresentativeCoverPage':
+            'representative',
+        'jpcrp-esr_cor:AddressOfRegisteredHeadquarterCoverPage':
+            'headquarters_address',
         'jpcrp-esr_cor:TelephoneNumberCoverPage': 'phone_number',
     }
 
@@ -101,7 +106,7 @@ def process_zip_file(path_to_zip_file, doc_id, doc_type_code):
                 result['doc_type_code'] = doc_type_code
             all_results.extend(results)
     except Exception as e:
-        #print(f"Error processing {path_to_zip_file}: {str(e)}")
+        # print(f"Error processing {path_to_zip_file}: {str(e)}")
         pass
     return all_results
 
