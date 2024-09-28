@@ -1,0 +1,13 @@
+*.py[cod]
+__pycache__
+.python-version
+*.db
+*.log
+local_cache
+venv
+.env
+*.swp
+.DS_Store
+*downloads
+*.csv
+*.zip
