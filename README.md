@@ -13,7 +13,7 @@ This project provides a set of tools for interacting with Japan's [EDINET](https
 
 - Python 3.7+
 - EDINET API key
-- OpenAI API key
+- OpenAI API key (optional: for analysis functions/demo)
 
 ## Installation
 
@@ -68,7 +68,9 @@ Please feel free to submit a Pull Request, or get in touch via email: [mahelmer2
 
 ## Disclaimer
 
-This project is an independent tool and is not affiliated with, endorsed by, or in any way officially connected with the Financial Services Agency (FSA) of Japan or any of its subsidiaries or affiliates. The official EDINET website can be found at [https://disclosure2.edinet-fsa.go.jp/](https://disclosure2.edinet-fsa.go.jp/).
+This project is an independent tool and is not affiliated with, endorsed by, or in any way officially connected with the Financial Services Agency (FSA) of Japan or any of its subsidiaries or affiliates.
+
+The official EDINET website: [https://disclosure2.edinet-fsa.go.jp/](https://disclosure2.edinet-fsa.go.jp/).
 
 This software is provided "as is" for informational purposes only. The creator assumes no liability for errors, omissions, or any consequences of using this software. This tool does not provide financial advice. Users are solely responsible for verifying information and for any decisions made based on it. Use at your own risk.
 
