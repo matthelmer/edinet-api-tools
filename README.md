@@ -18,14 +18,25 @@ This project provides a set of tools for interacting with Japan's [EDINET](https
 ## Installation
 
 1. Clone this repository
-2. Install required packages: `pip install -r requirements.txt`
-3. Set up environment variables:
+2. Create and activate a virtual environment:
+   - On macOS and Linux:
+   ```
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+3. Install required packages:
+   ```
+   pip install -r requirements.txt
+   ```
+4. Set up environment variables:
    - Create a `.env` file in the project root
    - Add your API keys:
      ```
      EDINET_API_KEY=<your_edinet_api_key>
      OPENAI_API_KEY=<your_openai_api_key>
      ```
+5. Ensure your virtual environment (venv) is activated whenever you use these tools.
+
 
 ## Usage
 
