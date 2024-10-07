@@ -6,7 +6,7 @@ from colorama import init, Fore, Style
 
 from edinet_tools import get_documents_for_date_range, download_documents
 from utils import process_zip_directory
-from openai_analysis import openai_analyze
+from analysis_tools import openai_completion
 
 # Initialize colorama for cross-platform color support
 init()
@@ -63,7 +63,7 @@ def run_demo():
     download_dir = os.path.join(".", "downloads")
     download_documents(docs, download_dir)
 
-    print(f"\n{Fore.CYAN}Processing documents...{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}Analyzing first ten disclosures...{Style.RESET_ALL}")
     all_results = process_zip_directory(download_dir, doc_type_codes=doc_type_codes)
 
     print(f"\n{Fore.BLUE}{'=' * 80}{Style.RESET_ALL}")
@@ -74,11 +74,13 @@ def run_demo():
         company_name = disclosure_data.get("company_name_en", "Unknown Company")
         print(f"{Fore.MAGENTA}{i:02d}/{min(10, len(all_results)):02d} - {company_name}{Style.RESET_ALL}")
         print_progress("Analyzing disclosure data...")
-        one_liner = openai_analyze(disclosure_data)
+        one_liner = openai_completion(disclosure_data)
+        m_a_signal = openai_completion(disclosure_data, prompt_type='m_a_signal')
 
         print(f"{Fore.WHITE}{one_liner}{Style.RESET_ALL}\n")
+        print(f"{Fore.RED}{m_a_signal}{Style.RESET_ALL}\n")
         print(f"{Fore.BLUE}{'-' * 80}{Style.RESET_ALL}\n")
-        time.sleep(1)  # pause between entries for readability
+        time.sleep(4)  # pause between entries for readability
 
     print(f"\n{Fore.GREEN}Analysis complete. {len(all_results)} documents processed for {found_date}.{Style.RESET_ALL}")
 

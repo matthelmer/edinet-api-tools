@@ -1,6 +1,9 @@
 # openai_analysis.py
+import os
 from typing import Dict, Any
 from openai import OpenAI
+
+from config import OPENAI_API_KEY
 
 PROMPT_TEMPLATES = {
     "executive_summary": (
@@ -10,23 +13,27 @@ PROMPT_TEMPLATES = {
         "Be more concise than normal and interpret the data. "
         "Provide a very concise (<15 words) summary of what the "
         "company that filed the document does. "
-        "Begin your analysis with the company's English name, "
-        "and end with a very concise (<15 words) "
+        "Always begin your analysis with the company's English name, "
+        "all caps, and end with a very concise (<15 words) "
         "`Potential Impact on Share Price`, with rationale."
     ),
     "one_liner": (
         "Provide a one-liner (<50 words), english-language "
         "Executive Summary of the following Japanese financial "
         "disclosure text. Do not reply in Japanese. "
-        "Begin your analysis with the company's English name, "
-        "and end with an ultra concise (<10 words) "
-        "`Strategy` takeaway, with rationale."
+        "Begin your response with the company's English name."
+    ),
+    "m_a_signal": (
+        "Provide an ultra concise (<20 words), "
+        "clear, `M&A Strategy` strategic assessment of the data, "
+        "especially concering potential share price impact."
     ),
     # Add more templates as needed
 }
 
 
-def openai_analyze(filing_data: Dict[str, Any], prompt_type: str = "one_liner") -> str:
+def openai_completion(filing_data: Dict[str, Any],
+                      prompt_type: str = "one_liner") -> str:
     """
     Analyze financial disclosure data using OpenAI API.
 
@@ -62,9 +69,9 @@ def openai_analyze(filing_data: Dict[str, Any], prompt_type: str = "one_liner") 
     {data}
     """
 
-    client = OpenAI()
+    client = OpenAI(api_key=OPENAI_API_KEY)
     completion = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",
         messages=[{"role": "system", "content": system_prompt}]
     )
 
