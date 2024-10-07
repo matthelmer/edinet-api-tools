@@ -18,16 +18,24 @@ This project provides a set of tools for interacting with Japan's [EDINET](https
 ## Installation
 
 1. Clone this repository
+
 2. Create and activate a virtual environment:
    - On macOS and Linux:
    ```
    python3 -m venv venv
    source venv/bin/activate
    ```
+   - On Windows:
+   ```
+   python -m venv venv
+   .\venv\Scripts\activate
+   ```
+
 3. Install required packages:
    ```
    pip install -r requirements.txt
    ```
+
 4. Set up environment variables:
    - Create a `.env` file in the project root
    - Add your API keys:
@@ -35,6 +43,7 @@ This project provides a set of tools for interacting with Japan's [EDINET](https
      EDINET_API_KEY=<your_edinet_api_key>
      OPENAI_API_KEY=<your_openai_api_key>
      ```
+
 5. Ensure your virtual environment (venv) is activated whenever you use these tools.
 
 
@@ -49,18 +58,18 @@ python demo.py
 This will:
 - Fetch recent "Extraordinary Reports" from EDINET
 - Download and process the documents
-- Generate concise summaries using OpenAI's GPT-4o model
+- Generate concise summaries using OpenAI's language model, `gpt-4o`
 
 ## Main Components
 
 - `edinet_tools.py`: Functions for interacting with the EDINET API
 - `utils.py`: Utility functions for file processing and text cleaning
-- `openai_analysis.py`: Functions for analyzing document data using OpenAI's API
+- `analysis_tools.py`: Functions for analyzing document data using OpenAI's API
 - `demo.py`: Demonstration script showing the tool's capabilities
 
 ## Customization
 
-You can modify the `PROMPT_TEMPLATES` in `openai_analysis.py` to customize the analysis output or add new analysis instructions.
+You can modify the `PROMPT_TEMPLATES` in `analysis_tools.py` to customize the analysis output or add new analysis instructions.
 
 ## Contributing
 
