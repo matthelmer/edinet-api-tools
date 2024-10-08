@@ -80,7 +80,7 @@ def run_demo():
         print(f"{Fore.WHITE}{one_liner}{Style.RESET_ALL}\n")
         print(f"{Fore.RED}{m_a_signal}{Style.RESET_ALL}\n")
         print(f"{Fore.BLUE}{'-' * 80}{Style.RESET_ALL}\n")
-        time.sleep(4)  # pause between entries for readability
+        time.sleep(2)  # pause between entries for readability
 
     print(f"\n{Fore.GREEN}Analysis complete. {len(all_results)} documents processed for {found_date}.{Style.RESET_ALL}")
 
