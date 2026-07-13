@@ -8,6 +8,7 @@ using official EDINET codes from the Japanese government.
 from typing import Dict, List, Optional, Any
 import logging
 from .data_loader import get_data_loader
+from .normalize import normalize_for_matching
 import difflib
 
 logger = logging.getLogger(__name__)
@@ -127,29 +128,35 @@ class CompanyLookup:
             self.edinet_to_company[edinet_code] = company
     
     def _build_search_indexes(self):
-        """Build search indexes for company names."""
+        """Build search indexes for company names.
+
+        Index keys are normalized via normalize_for_matching (NFKC
+        width-folding + (株)/(有) rewrites + lowercase) so full-width /
+        half-width variants of visually identical names share one key.
+        Queries are normalized the same way at lookup time.
+        """
         self.name_to_edinet = {}
-        
+
         for company in self.companies:
             edinet_code = company['edinet_code']
-            
+
             # Add Japanese name variations
             name_ja = company.get('name_ja', '')
             if name_ja:
-                self.name_to_edinet[name_ja.lower()] = edinet_code
+                self.name_to_edinet[normalize_for_matching(name_ja)] = edinet_code
                 # Remove common suffixes for easier search
                 for suffix in ['株式会社', '(株)', 'カ)', 'カブシキガイシャ']:
-                    clean_name = name_ja.replace(suffix, '').strip().lower()
+                    clean_name = normalize_for_matching(name_ja.replace(suffix, ''))
                     if clean_name:
                         self.name_to_edinet[clean_name] = edinet_code
-            
+
             # Add English name variations
             name_en = company.get('name_en', '')
             if name_en:
-                self.name_to_edinet[name_en.lower()] = edinet_code
+                self.name_to_edinet[normalize_for_matching(name_en)] = edinet_code
                 # Remove common suffixes
                 for suffix in [' corporation', ' corp', ' ltd', ' limited', ' inc', ' co']:
-                    clean_name = name_en.lower().replace(suffix, '').strip()
+                    clean_name = normalize_for_matching(name_en.lower().replace(suffix, ''))
                     if clean_name:
                         self.name_to_edinet[clean_name] = edinet_code
     
@@ -204,11 +211,11 @@ class CompanyLookup:
         if edinet_code:
             return edinet_code
         
-        # Try name lookup
-        edinet_code = self.name_to_edinet.get(identifier.lower())
+        # Try name lookup (index keys are normalize_for_matching-normalized)
+        edinet_code = self.name_to_edinet.get(normalize_for_matching(identifier))
         if edinet_code:
             return edinet_code
-        
+
         return None
     
     def search_companies(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -222,23 +229,26 @@ class CompanyLookup:
         Returns:
             List of matching company information
         """
-        query = query.lower().strip()
-        
+        # Width-fold + lowercase both sides (NFKC): full-width queries
+        # (ＱＰＳ, ＫＥＹＥＮＣＥ — what Japanese IMEs naturally produce)
+        # must match ASCII search_text and vice versa.
+        query = normalize_for_matching(query)
+
         # Return empty list for empty queries
         if not query:
             return []
-        
+
         matches = []
-        
+
         for company in self.companies:
             score = 0
-            
+
             # Exact ticker match
             if query == company.get('ticker', ''):
                 score = 100
-            
+
             # Check search text for fuzzy matching
-            search_text = company.get('search_text', '').lower()
+            search_text = normalize_for_matching(company.get('search_text', ''))
             
             # Exact substring match
             if query in search_text:

@@ -274,3 +274,31 @@ if __name__ == "__main__":
         assert len(get_supported_companies()) > 0
         
         print("✅ Basic validation passed!")
+
+class TestWidthFoldedSearch:
+    """Full-width / half-width folding in the data.py search layer (0.8.0).
+
+    Japanese IMEs naturally produce full-width Latin (ＱＰＳ, ＫＥＹＥＮＣＥ)
+    and catalogs mix widths (三菱ＵＦＪ carries full-width ＵＦＪ in its own
+    search_text). Queries and index keys must be normalized via
+    normalize_for_matching (NFKC + (株) rewrites + lowercase) so visually
+    identical strings match. The entity.py layer already does this; this
+    pins the same behavior for the data.py layer.
+    """
+
+    def test_halfwidth_query_matches_fullwidth_search_text(self):
+        # 三菱ＵＦＪフィナンシャル・グループ's search_text contains full-width ＵＦＪ.
+        results = search_companies('ufj')
+        assert results, "half-width 'ufj' must match full-width ＵＦＪ"
+        assert any(r['edinet_code'] == 'E03606' for r in results)
+
+    def test_fullwidth_query_matches_halfwidth_search_text(self):
+        # Keyence's search_text carries ASCII 'keyence'.
+        results = search_companies('ＫＥＹＥＮＣＥ')
+        assert results, "full-width ＫＥＹＥＮＣＥ must match ascii 'keyence'"
+        assert any(r['edinet_code'] == 'E01967' for r in results)
+
+    def test_halfwidth_katakana_resolves_name(self):
+        # Half-width katakana ｷｰｴﾝｽ NFKC-folds to キーエンス.
+        lookup = CompanyLookup()
+        assert lookup.resolve_company_identifier('ｷｰｴﾝｽ') == 'E01967'
