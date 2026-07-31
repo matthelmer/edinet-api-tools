@@ -3,12 +3,18 @@
 Bounds withhold: a value structurally impossible under the field's name means
 the element mapping is wrong, so the typed field is emptied and a flag records
 why. Rules encode possibility, never plausibility.
+
+Identities annotate: an identity has multiple operands and cannot localize
+the culprit, so it writes a flag but empties nothing.
 """
 from decimal import Decimal
 
 import pytest
 
-from edinet_tools.parsers.validation import Bound, ExtractionFlag, apply_bounds
+from edinet_tools.parsers.validation import (
+    Bound, ExtractionFlag, Identity, apply_bounds, apply_identities,
+    apply_validation, IDENTITY_TOLERANCE,
+)
 from edinet_tools.parsers.securities import SecuritiesReport
 
 
@@ -78,3 +84,55 @@ class TestBoundsWithhold:
         assert d == {'field': 'equity_ratio', 'element_id': 'x', 'value': '2',
                      'rule': 'bound:equity_ratio<=1', 'severity': 'withheld',
                      'accounting_standard': 'IFRS'}
+
+
+def equity_ratio_reconciles(er, na, ta):
+    if ta == 0:
+        return None  # cannot evaluate -> skip
+    return abs(er - na / ta) <= IDENTITY_TOLERANCE
+
+
+EQUITY_IDENTITY = Identity(
+    name='identity:equity_ratio~net_assets/total_assets',
+    operands=('equity_ratio', 'net_assets', 'total_assets'),
+    check=equity_ratio_reconciles,
+)
+
+
+class TestIdentitiesAnnotate:
+    def test_violation_annotates_and_keeps_all_values(self):
+        # 0.30 stated vs 0.60 computed: annotate, never empty — an identity
+        # cannot localize the culprit (spec: the J-GAAP grain case is a
+        # correct filed ratio disagreeing with a differently-grained operand)
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets=600, total_assets=1000)
+        flags = apply_identities(report, [EQUITY_IDENTITY])
+        assert len(flags) == 1
+        assert flags[0].severity == 'annotated'
+        assert flags[0].rule == 'identity:equity_ratio~net_assets/total_assets'
+        assert report.equity_ratio == Decimal('0.30')  # KEPT
+        assert report.net_assets == 600                 # KEPT
+        assert 'equity_ratio=0.30' in flags[0].value
+
+    def test_within_tolerance_no_flag(self):
+        report = make_report(equity_ratio=Decimal('0.601'),
+                             net_assets=600, total_assets=1000)
+        assert apply_identities(report, [EQUITY_IDENTITY]) == []
+
+    def test_missing_operand_skips(self):
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets=None, total_assets=1000)
+        assert apply_identities(report, [EQUITY_IDENTITY]) == []
+
+    def test_check_returning_none_skips(self):
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets=600, total_assets=0)
+        assert apply_identities(report, [EQUITY_IDENTITY]) == []
+
+    def test_standards_scope_respected(self):
+        scoped = Identity(name=EQUITY_IDENTITY.name,
+                          operands=EQUITY_IDENTITY.operands,
+                          check=EQUITY_IDENTITY.check, standards=('IFRS',))
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets=600, total_assets=1000)  # J-GAAP
+        assert apply_identities(report, [scoped]) == []

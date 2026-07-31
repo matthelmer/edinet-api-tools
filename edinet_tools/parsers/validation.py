@@ -110,3 +110,53 @@ def apply_bounds(report, bounds, provenance=None) -> list:
                 accounting_standard=standard,
             ))
     return flags
+
+
+@dataclass(frozen=True)
+class Identity:
+    """Accounting identity across multiple operand fields. check() receives
+    the operand values as Decimals in declared order and returns True (holds),
+    False (violated), or None (cannot evaluate -> skip). Violations ANNOTATE
+    only — identities never empty a field."""
+    name: str
+    operands: tuple
+    check: Callable
+    standards: Optional[tuple] = None
+
+
+def apply_identities(report, identities) -> list:
+    """Check every identity against the report. Violations produce an
+    'annotated' flag but DO NOT modify the report. Returns the flags; caller
+    appends them to report.extraction_flags."""
+    standard = getattr(report, 'accounting_standard', None)
+    flags = []
+    for identity in identities:
+        if not _in_scope(identity.standards, standard):
+            continue
+        values = [_as_decimal(getattr(report, op, None))
+                  for op in identity.operands]
+        if any(v is None for v in values):
+            continue  # skip, never fail
+        result = identity.check(*values)
+        if result is None or result:
+            continue
+        rendered = ', '.join(f'{op}={val}'
+                             for op, val in zip(identity.operands, values))
+        flags.append(ExtractionFlag(
+            field=identity.operands[0],
+            element_id=None,
+            value=rendered,
+            rule=identity.name,
+            severity='annotated',
+            accounting_standard=standard,
+        ))
+    return flags
+
+
+def apply_validation(report, bounds, identities, provenance=None) -> None:
+    """Run bounds (withhold) then identities (annotate) and extend
+    report.extraction_flags. Bounds run first deliberately: a withheld operand
+    makes dependent identities skip rather than annotate garbage."""
+    flags = apply_bounds(report, bounds, provenance=provenance)
+    flags.extend(apply_identities(report, identities))
+    report.extraction_flags.extend(flags)
