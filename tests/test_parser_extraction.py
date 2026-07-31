@@ -5,7 +5,6 @@ the full parser pipeline, and verifies extracted field values. This catches
 regressions in element IDs, context patterns, type conversions, and fallback logic.
 """
 import io
-import warnings
 import zipfile
 import pytest
 from datetime import date
@@ -723,12 +722,6 @@ class TestTreasuryStockExtraction:
         # TextBlock content
         assert '株主総会決議' in r.by_shareholders_meeting
         assert '取締役会決議' in r.by_board_meeting
-        # has_shareholder_authorization / has_board_authorization are deprecated v0.6.1;
-        # wrap to silence warnings while preserving the behavioral assertion.
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            assert r.has_shareholder_authorization is True
-            assert r.has_board_authorization is True
         assert '保有自己株式数' in r.disposal_holding_text
 
     def test_amendment_flag(self):

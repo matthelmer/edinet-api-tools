@@ -1,6 +1,4 @@
 """Tests for document parsers."""
-import warnings
-
 import pytest
 from datetime import date
 from decimal import Decimal
@@ -478,19 +476,16 @@ class TestTreasuryStockReport:
         )
         assert 'AMENDED' in repr(amended)
 
-    def test_treasury_stock_authorization_properties(self):
-        """TreasuryStockReport authorization properties work (deprecated v0.6.1)."""
+    def test_treasury_stock_authorization_text_blocks(self):
+        """The authorization facts are the raw by_*_meeting text blocks."""
         report = TreasuryStockReport(
             doc_id='S100ABC123',
             doc_type_code='220',
             by_board_meeting='取締役会決議に基づく取得',
             by_shareholders_meeting=None,
         )
-        # Deprecated API; wrap to silence warnings while preserving the behavioral assertion.
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            assert report.has_board_authorization is True
-            assert report.has_shareholder_authorization is False
+        assert report.by_board_meeting == '取締役会決議に基づく取得'
+        assert report.by_shareholders_meeting is None
 
     def test_treasury_stock_filer_property(self):
         """TreasuryStockReport.filer returns Entity if resolvable."""

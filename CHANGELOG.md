@@ -9,6 +9,8 @@
 
 ### Removed
 
+- **The legacy `EdinetClient` class**, deprecated since 0.2.0. Use the module-level functions instead: `edinet_tools.configure()`, `edinet_tools.documents()`, `entity.documents()`, and `doc.fetch()` / `doc.parse()`. The migration table in the 0.2.0 notes still applies.
+- **The deprecated boolean shims** retired in the 0.6.1 fact-shaped API transition: `Entity.is_listed`, `Entity.is_fund_issuer`, `EntityClassifier.is_listed()` (use `entity_type` / `get_entity_type()` — an `EntityType` enum that preserves the unknown case), `TreasuryStockReport.has_board_authorization` / `has_shareholder_authorization` (read the `by_board_meeting` / `by_shareholders_meeting` text blocks directly), and `utils.process_zip_directory()` (use `extract_csv_from_zip` / `extract_csv_to_disk`).
 - **The dead `[analysis]` install extra.** `pip install edinet-tools[analysis]` pulled in llm, pydantic, matplotlib, and plotly for nothing — the analysis module was removed in 0.4.1. The unused LLM config block went with it, so importing the package without an LLM API key no longer logs a spurious "LLM analysis disabled" warning.
 
 ## v0.7.1 — 2026-06-12

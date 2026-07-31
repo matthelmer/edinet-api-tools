@@ -155,7 +155,6 @@ class EntityClassifier:
         classifier = EntityClassifier()
         classifier.get_entity_type('E00001')  # -> EntityType.LISTED_COMPANY
         classifier.is_fund('E12345')          # -> True
-        classifier.is_listed('E00001')        # -> True
         classifier.is_known('E99999')         # -> False (stale data indicator)
     """
 
@@ -347,28 +346,6 @@ class EntityClassifier:
     def is_fund(self, edinet_code: str) -> bool:
         """Check if entity is an investment fund issuer."""
         return edinet_code in self._fund_edinet_codes
-
-    def is_listed(self, edinet_code: str) -> bool:
-        """DEPRECATED v0.6.1 — use get_entity_type() instead.
-
-        Collapses the 5-valued EntityType classification into a bool, silently
-        masking the honest-unknown case as False. Use
-        `classifier.get_entity_type(code) == EntityType.LISTED_COMPANY` for an
-        equivalent check that preserves the unknown case.
-
-        Will be removed in a future major release.
-        """
-        import warnings
-        warnings.warn(
-            "EntityClassifier.is_listed() is deprecated and will be removed in "
-            "a future major release. Use get_entity_type() instead. For an "
-            "equivalent bool check: "
-            "`classifier.get_entity_type(code) == EntityType.LISTED_COMPANY`.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        entity = self._edinet_entities.get(edinet_code)
-        return entity is not None and entity.get('is_listed', False)
 
     def is_known(self, edinet_code: str) -> bool:
         """

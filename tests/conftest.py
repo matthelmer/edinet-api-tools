@@ -50,7 +50,7 @@ def set_test_env_vars(request):
 def reset_module_client():
     """Reset the module-level client singleton after every test.
 
-    Without this, a test that calls configure() while EdinetClient is
+    Without this, a test that calls configure() while _ApiClient is
     patched leaves the stale Mock in edinet_tools._client._client, and
     every later test that touches the module-level API silently talks to
     that Mock (found 2026-07-30: two tests had been skip-passing on the

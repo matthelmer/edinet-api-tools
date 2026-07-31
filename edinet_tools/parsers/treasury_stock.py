@@ -107,48 +107,6 @@ class TreasuryStockReport(ParsedReport):
             return entity_by_edinet_code(self.filer_edinet_code)
         return None
 
-    @property
-    def has_board_authorization(self) -> bool:
-        """DEPRECATED v0.6.1 — derive directly from by_board_meeting.
-
-        Use: `bool(parsed.by_board_meeting and parsed.by_board_meeting.strip())`
-
-        This convenience accessor is being retired as part of the v0.6.1
-        fact-shaped API transition — the substrate (by_board_meeting text
-        block content) is the fact; bool checks belong in user code.
-
-        Will be removed in a future major release.
-        """
-        import warnings
-        warnings.warn(
-            "TreasuryStockReport.has_board_authorization is deprecated and "
-            "will be removed in a future major release. Use "
-            "`bool(parsed.by_board_meeting and parsed.by_board_meeting.strip())` "
-            "directly.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return bool(self.by_board_meeting and self.by_board_meeting.strip())
-
-    @property
-    def has_shareholder_authorization(self) -> bool:
-        """DEPRECATED v0.6.1 — derive directly from by_shareholders_meeting.
-
-        Use: `bool(parsed.by_shareholders_meeting and parsed.by_shareholders_meeting.strip())`
-
-        Will be removed in a future major release.
-        """
-        import warnings
-        warnings.warn(
-            "TreasuryStockReport.has_shareholder_authorization is deprecated "
-            "and will be removed in a future major release. Use "
-            "`bool(parsed.by_shareholders_meeting and parsed.by_shareholders_meeting.strip())` "
-            "directly.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return bool(self.by_shareholders_meeting and self.by_shareholders_meeting.strip())
-
     def __repr__(self) -> str:
         filer = self.filer_name or 'Unknown'
         if len(filer) > 25:

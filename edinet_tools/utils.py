@@ -4,10 +4,9 @@ import pandas as pd
 import re
 import chardet
 import tempfile
-import warnings
 import zipfile
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 from .processors import process_raw_csv_data
 
@@ -144,58 +143,4 @@ def process_zip_file(path_to_zip_file: str, doc_id: str, doc_type_code: str) -> 
         # traceback.print_exc() # Uncomment for detailed traceback during debugging
         return None
 
-
-def process_zip_directory(directory_path: str,
-                          doc_type_codes: List[str] = None) -> List[Dict[str, Any]]:
-    """
-    Process all ZIP files in a directory containing EDINET documents.
-
-    :param directory_path: Path to the directory containing ZIP files.
-    :param doc_type_codes: Optional list of doc type codes to process.
-    :return: List of structured data dictionaries for each successfully processed document.
-    """
-    warnings.warn(
-        "process_zip_directory() is deprecated and will be removed in a future release. "
-        "Use extract_csv_from_zip() for in-memory CSV extraction, or extract_csv_to_disk() "
-        "for disk output (both in edinet_tools.parsers.extraction).",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    all_structured_data = []
-    if not os.path.isdir(directory_path):
-        logger.error(f"Directory not found: {directory_path}")
-        return []
-
-    zip_files = [f for f in os.listdir(directory_path) if f.endswith('.zip')]
-    total_files = len(zip_files)
-    logger.info(f"Found {total_files} zip files in {directory_path} to process.")
-
-    for i, filename in enumerate(zip_files, 1):
-        file_path = os.path.join(directory_path, filename)
-        try:
-            # Filename format: docID-docTypeCode-filerName.zip
-            parts = filename.split('-', 2)
-            if len(parts) < 3:
-                 logger.warning(f"Skipping improperly named zip file: {filename}")
-                 continue
-            doc_id = parts[0]
-            doc_type_code = parts[1]
-            # filer_name = parts[2].rsplit('.', 1)[0] # Not strictly needed here
-
-            if doc_type_codes is not None and doc_type_code not in doc_type_codes:
-                # logger.debug(f"Skipping {filename} (doc type {doc_type_code} not in target list)")
-                continue
-
-            logger.info(f"Processing {i}/{total_files}: `{filename}`")
-            structured_data = process_zip_file(file_path, doc_id, doc_type_code)
-
-            if structured_data:
-                all_structured_data.append(structured_data)
-
-        except Exception as e:
-            logger.error(f"Error processing zip file {filename}: {e}")
-            # traceback.print_exc() # Uncomment for detailed traceback during debugging
-
-    logger.info(f"Finished processing zip directory. Successfully extracted structured data for {len(all_structured_data)} documents.")
-    return all_structured_data
 

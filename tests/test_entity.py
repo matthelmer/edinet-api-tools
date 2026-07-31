@@ -1,12 +1,11 @@
 """Tests for Entity and Fund classes."""
-import warnings
-
 import pytest
 from unittest.mock import Mock, patch
 from edinet_tools.entity import (
     Entity, entity, entity_by_ticker, entity_by_edinet_code, search_entities,
     Fund, fund, funds_by_issuer
 )
+from edinet_tools.entity_classifier import EntityType
 
 
 class TestEntityBasics:
@@ -29,9 +28,7 @@ class TestEntityBasics:
         assert entity.name_jp == 'トヨタ自動車株式会社'
         assert entity.name_en == 'TOYOTA MOTOR CORPORATION'
         assert entity.ticker == '7203'
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            assert entity.is_listed is True
+        assert entity.entity_type == EntityType.LISTED_COMPANY
 
     def test_entity_name_property_prefers_english(self):
         """Entity.name should return English name if available."""
@@ -179,22 +176,19 @@ class TestFundLookup:
 class TestEntityFundIssuer:
     """Test entity fund issuer functionality."""
 
-    def test_is_fund_issuer_false_for_regular_company(self):
-        """Regular companies are not fund issuers."""
+    def test_entity_type_is_fund_for_issuer(self):
+        """Fund issuers classify as EntityType.FUND; regular companies do not."""
         toyota = entity("7203")
         assert toyota is not None
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            assert toyota.is_fund_issuer is False
-
-    def test_is_fund_issuer_true_for_fund_issuer(self):
-        """Fund issuers are correctly identified."""
+        assert toyota.entity_type != EntityType.FUND
         # E12422 is しんきんアセットマネジメント投信 - a known fund issuer
         issuer = entity_by_edinet_code("E12422")
         assert issuer is not None
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            assert issuer.is_fund_issuer is True
+        assert issuer.entity_type == EntityType.FUND
+
+    def test_entity_type_unknown_for_nonexistent_code(self):
+        """A code absent from the registry classifies as UNKNOWN, not a coerced False."""
+        assert Entity({'edinet_code': 'E_NONEXISTENT'}).entity_type == EntityType.UNKNOWN
 
     def test_entity_funds_property_returns_list(self):
         """Entity.funds returns a list."""
@@ -227,7 +221,7 @@ class TestEntityDocuments:
         assert toyota._client is None
 
         _reset_client()
-        with patch('edinet_tools._client.EdinetClient') as MockClient:
+        with patch('edinet_tools._client._ApiClient') as MockClient:
             mock_instance = MockClient.return_value
             mock_instance.get_documents_by_date.return_value = []
 

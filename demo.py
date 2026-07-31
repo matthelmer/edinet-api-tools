@@ -105,8 +105,8 @@ def parse_treasury_stock(docs):
             print(f"  Ticker:    {report.ticker}")
             print(f"  Filed:     {report.filing_date}")
             print(f"  Period:    {report.reporting_period}")
-            print(f"  Board auth:       {report.has_board_authorization}")
-            print(f"  Shareholder auth: {report.has_shareholder_authorization}")
+            print(f"  Board auth:       {bool(report.by_board_meeting)}")
+            print(f"  Shareholder auth: {bool(report.by_shareholders_meeting)}")
             return
 
     print("  No doc 220 found in the last 5 days")

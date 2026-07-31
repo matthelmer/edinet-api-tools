@@ -15,9 +15,8 @@ from unittest.mock import Mock, patch, mock_open
 from edinet_tools.utils import (
     detect_encoding,
     read_csv_file,
-    clean_text, 
+    clean_text,
     process_zip_file,
-    process_zip_directory
 )
 
 
@@ -318,81 +317,6 @@ auditor_opinion\tUnqualified'''
         # But text_blocks should be populated:
         tb_ids = [tb['id'] for tb in result['text_blocks']]
         assert 'jpcrp_cor:TreasuryStockAcquisitionTextBlock' in tb_ids
-
-
-class TestDirectoryProcessing:
-    """Test processing directories containing multiple ZIP files"""
-    
-    def setup_method(self):
-        """Create test directory with multiple ZIP files"""
-        self.temp_dir = tempfile.mkdtemp()
-    
-    def teardown_method(self):
-        """Clean up"""
-        import shutil
-        shutil.rmtree(self.temp_dir)
-
-    def test_directory_with_multiple_document_types(self):
-        """Process directory containing different document types"""
-        # Create multiple ZIP files for different document types
-        zip_files = [
-            ('S100TEST1-140-InternalControl.zip', '140'),
-            ('S100TEST2-160-SemiAnnual.zip', '160'), 
-            ('S100TEST3-180-Extraordinary.zip', '180'),
-            ('S100TEST4-160-AnotherSemi.zip', '160')
-        ]
-        
-        for zip_name, doc_type in zip_files:
-            zip_path = os.path.join(self.temp_dir, zip_name)
-            with zipfile.ZipFile(zip_path, 'w') as zf:
-                csv_content = f'''要素ID\t項目名\t値
-jpdei_cor:EDINETCodeDEI\tEDINETコード\tE0{doc_type}
-jpcrp_cor:TestData\tTest\tDoc Type {doc_type}'''
-                zf.writestr('test_data.csv', csv_content.encode('utf-8'))
-        
-        with patch('edinet_tools.utils.process_raw_csv_data') as mock_process:
-            def mock_process_side_effect(csv_data, doc_id, doc_type_code, temp_dir):
-                return {'doc_id': doc_id, 'doc_type_code': doc_type_code, 'processed': True}
-            
-            mock_process.side_effect = mock_process_side_effect
-            
-            # Process all files
-            results = process_zip_directory(self.temp_dir)
-            
-            assert len(results) == 4
-            assert mock_process.call_count == 4
-            
-            # Verify all document types were processed
-            doc_types_processed = [r['doc_type_code'] for r in results]
-            assert '140' in doc_types_processed
-            assert '160' in doc_types_processed  
-            assert '180' in doc_types_processed
-
-    def test_directory_with_document_type_filter(self):
-        """Test filtering by specific document types (critical types only)"""
-        # Create mixed document types
-        zip_files = [
-            ('S100A-140-Internal.zip', '140'),
-            ('S100B-160-Semi.zip', '160'),
-            ('S100C-180-Extra.zip', '180'),
-            ('S100D-235-Other.zip', '235')  # Non-critical type
-        ]
-        
-        for zip_name, doc_type in zip_files:
-            zip_path = os.path.join(self.temp_dir, zip_name)
-            with zipfile.ZipFile(zip_path, 'w') as zf:
-                zf.writestr('data.csv', f'doc_type,{doc_type}\n'.encode('utf-8'))
-        
-        with patch('edinet_tools.utils.process_raw_csv_data') as mock_process:
-            mock_process.return_value = {'processed': True}
-            
-            # Filter for critical document types only  
-            results = process_zip_directory(self.temp_dir, doc_type_codes=['140', '160', '180'])
-            
-            # Should process 3 files (exclude type 235)
-            assert len(results) == 3
-            assert mock_process.call_count == 3
-
 
 
 class TestTextProcessing:

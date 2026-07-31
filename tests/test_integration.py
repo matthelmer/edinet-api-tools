@@ -6,13 +6,9 @@ Detailed unit tests for Entity, Fund, etc. are in their respective test files.
 """
 
 import os
-import warnings
-
-import pytest
 from unittest.mock import patch
 
 import edinet_tools
-from edinet_tools.exceptions import ConfigurationError
 
 
 class TestPackageExports:
@@ -62,7 +58,6 @@ class TestPackageExports:
 
     def test_legacy_exports(self):
         """Legacy/deprecated exports still available for migration."""
-        assert edinet_tools.EdinetClient is not None
         assert edinet_tools.EntityClassifier is not None
 
     def test_all_exports_complete(self):
@@ -72,7 +67,7 @@ class TestPackageExports:
             'Entity', 'entity', 'entity_by_ticker', 'entity_by_edinet_code',
             'search_entities', 'search', 'Fund', 'fund', 'funds_by_issuer',
             'Document', 'DocType', 'doc_type', 'list_doc_types', 'doc_types',
-            'parse', 'ParsedReport', 'EdinetClient',
+            'parse', 'ParsedReport',
         ]
         for name in expected:
             assert name in edinet_tools.__all__, f"Missing: {name}"
@@ -112,7 +107,7 @@ class TestModuleConfiguration:
         from edinet_tools._client import _reset_client, configure
 
         _reset_client()
-        with patch('edinet_tools._client.EdinetClient') as MockClient:
+        with patch('edinet_tools._client._ApiClient') as MockClient:
             mock_instance = MockClient.return_value
             mock_instance.get_documents_by_date.return_value = [
                 {'docID': 'S100TEST', 'docTypeCode': '350',
@@ -138,9 +133,7 @@ class TestEndToEndWorkflows:
         toyota = edinet_tools.entity('7203')
         assert toyota is not None
         assert toyota.edinet_code == 'E02144'
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            assert toyota.is_listed is True
+        assert toyota.entity_type == edinet_tools.EntityType.LISTED_COMPANY
 
     def test_document_type_workflow(self):
         """Look up document types."""
@@ -161,15 +154,6 @@ class TestEndToEndWorkflows:
         assert edinet_tools.doc_type('999') is None
 
 
-class TestDeprecationWarnings:
-    """Test that deprecated APIs show warnings."""
-
-    def test_edinet_client_deprecated(self):
-        """EdinetClient shows deprecation warning."""
-        with pytest.warns(DeprecationWarning, match="EdinetClient is deprecated"):
-            edinet_tools.EdinetClient(api_key='dummy')
-
-
 class TestEntityAutoClient:
     """Test that Entity/Document use module-level client automatically."""
 
@@ -178,7 +162,7 @@ class TestEntityAutoClient:
         from edinet_tools._client import _reset_client, configure
 
         _reset_client()
-        with patch('edinet_tools._client.EdinetClient') as MockClient:
+        with patch('edinet_tools._client._ApiClient') as MockClient:
             mock_instance = MockClient.return_value
             mock_instance.get_documents_by_date.return_value = []
 
@@ -193,7 +177,7 @@ class TestEntityAutoClient:
         from edinet_tools.document import Document
 
         _reset_client()
-        with patch('edinet_tools._client.EdinetClient') as MockClient:
+        with patch('edinet_tools._client._ApiClient') as MockClient:
             mock_instance = MockClient.return_value
             mock_instance.download_filing_raw.return_value = b'test content'
 

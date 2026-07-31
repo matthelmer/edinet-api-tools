@@ -9,7 +9,6 @@ __author__ = "Matt Helmer"
 __description__ = "Python package for accessing Japanese corporate financial data from EDINET"
 
 # Core API
-from .client import EdinetClient  # Deprecated, but kept for migration
 from ._client import configure, documents, fetch_and_parse
 from .timezone import today_jst
 from .config import SUPPORTED_DOC_TYPES as DOCUMENT_TYPES
@@ -99,7 +98,6 @@ __all__ = [
     "ParentCompanyReport",
     "LargeHoldingChangeReport",
     # Legacy (deprecated)
-    "EdinetClient",
     "EntityClassifier",
     "EntityType",
     "GenericReport",  # Backwards compatibility alias
