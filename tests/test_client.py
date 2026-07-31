@@ -86,7 +86,7 @@ class TestCompanyLookup:
             self.client._resolve_company_identifier("InvalidCompany123")
         
         assert "InvalidCompany123" in str(exc_info.value)
-        assert "search_companies" in str(exc_info.value)
+        assert "search_entities" in str(exc_info.value)
 
 
 class TestDocumentMethods:

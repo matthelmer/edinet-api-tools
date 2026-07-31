@@ -35,9 +35,10 @@ def _get_client() -> EdinetClient:
 
 
 def _reset_client() -> None:
-    """Reset the client singleton (for testing)."""
-    global _client
+    """Reset the client singleton and configured key (for testing)."""
+    global _client, _configured_api_key
     _client = None
+    _configured_api_key = None
 
 
 def configure(api_key: Optional[str] = None) -> None:

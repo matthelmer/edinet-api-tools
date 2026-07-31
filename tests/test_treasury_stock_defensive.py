@@ -1,12 +1,9 @@
-"""Regression test for treasury_stock defensive boolean checks.
+"""Deprecation-warning pins for the treasury_stock authorization shims.
 
-Prior behavior: has_board_authorization / has_shareholder_authorization
-used bare bool() on the text block field, returning True for empty-string
-or whitespace-only values. Fix: properties require non-whitespace content.
-
-v0.6.1: Both properties are deprecated. Tests are refactored to assert
-against the underlying field expressions directly. Two new tests verify
-the deprecation warnings fire correctly.
+has_board_authorization / has_shareholder_authorization are deprecated
+since v0.6.1; these tests pin the warnings and die with the shims.
+(The 2026-07 test audit removed eight refactored-into-tautology tests
+that asserted pure-Python expressions on values they had just set.)
 """
 import warnings
 
@@ -22,50 +19,6 @@ def _make_report(by_board: str | None = None, by_shareholders: str | None = None
         by_board_meeting=by_board,
         by_shareholders_meeting=by_shareholders,
     )
-
-
-# --- board authorization: direct field expression ---
-
-def test_board_authorization_truthy_when_text_present():
-    report = _make_report(by_board='取締役会決議による取得...')
-    assert bool(report.by_board_meeting and report.by_board_meeting.strip())
-
-
-def test_board_authorization_false_when_none():
-    report = _make_report(by_board=None)
-    assert not (report.by_board_meeting and report.by_board_meeting.strip())
-
-
-def test_board_authorization_false_when_empty_string():
-    report = _make_report(by_board='')
-    assert not (report.by_board_meeting and report.by_board_meeting.strip())
-
-
-def test_board_authorization_false_when_whitespace_only():
-    report = _make_report(by_board='   \n\t  ')
-    assert not (report.by_board_meeting and report.by_board_meeting.strip())
-
-
-# --- shareholder authorization: direct field expression ---
-
-def test_shareholder_authorization_truthy_when_text_present():
-    report = _make_report(by_shareholders='株主総会決議による取得...')
-    assert bool(report.by_shareholders_meeting and report.by_shareholders_meeting.strip())
-
-
-def test_shareholder_authorization_false_when_none():
-    report = _make_report(by_shareholders=None)
-    assert not (report.by_shareholders_meeting and report.by_shareholders_meeting.strip())
-
-
-def test_shareholder_authorization_false_when_empty_string():
-    report = _make_report(by_shareholders='')
-    assert not (report.by_shareholders_meeting and report.by_shareholders_meeting.strip())
-
-
-def test_shareholder_authorization_false_when_whitespace_only():
-    report = _make_report(by_shareholders='   ')
-    assert not (report.by_shareholders_meeting and report.by_shareholders_meeting.strip())
 
 
 # --- deprecation warning tests ---

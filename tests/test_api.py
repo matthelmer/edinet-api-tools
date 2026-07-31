@@ -57,35 +57,6 @@ class TestFetchDocumentsList:
             called_url = mock_urlopen.call_args[0][0]
             assert 'date=2025-02-14' in called_url
     
-    def test_japanese_holiday_handling(self):
-        """Test that API calls work on Japanese holidays (even if no results)."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response.read.return_value = b'{"results": []}'  # Empty results expected
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            # New Year's Day 2025 - should not crash, just return empty
-            result = fetch_documents_list('2025-01-01', api_key='test_key')
-            
-            assert result == {"results": []}
-            called_url = mock_urlopen.call_args[0][0]
-            assert 'date=2025-01-01' in called_url
-    
-    def test_weekend_date_handling(self):
-        """Test handling of weekend dates."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response.read.return_value = b'{"results": []}'
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            # Saturday 2025-01-04
-            result = fetch_documents_list('2025-01-04', api_key='test_key')
-            
-            assert isinstance(result, dict)
-            assert 'results' in result
-    
     def test_parameter_encoding_special_chars(self):
         """Test that URL parameters are properly encoded."""
         with patch('urllib.request.urlopen') as mock_urlopen:
@@ -191,20 +162,6 @@ class TestFetchDocumentsList:
         assert fund['fundCode'] == 'F12345'
         assert fund['docTypeCode'] == '180'
 
-    def test_future_date_handling(self):
-        """Test handling of future dates."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response.read.return_value = b'{"results": []}'
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            # Future date - should work but likely return no results
-            future_date = date.today() + timedelta(days=30)
-            result = fetch_documents_list(future_date, api_key='test_key')
-            
-            assert isinstance(result, dict)
-    
     def test_http_error_codes(self):
         """Test handling of various HTTP error codes."""
         error_scenarios = [
@@ -299,50 +256,6 @@ class TestFetchDocument:
                 assert 'type=5' in called_url  # CSV format
                 assert 'Subscription-Key=test_key' in called_url
     
-    def test_csv_type_parameter(self):
-        """Test that type=5 (CSV) is correctly specified."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response.read.return_value = b'csv_content'
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            fetch_document('S100A001', api_key='test_key')
-            
-            called_url = mock_urlopen.call_args[0][0]
-            assert 'type=5' in called_url
-    
-    def test_zip_file_content_handling(self):
-        """Test handling of actual ZIP file binary content."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            # Actual ZIP file header bytes
-            zip_content = b'\x50\x4b\x03\x04\x14\x00\x00\x00\x08\x00'
-            mock_response.read.return_value = zip_content
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            result = fetch_document('S100A001', api_key='test_key')
-            
-            assert result == zip_content
-            assert isinstance(result, bytes)
-            assert result.startswith(b'\x50\x4b')  # ZIP signature
-    
-    def test_large_document_handling(self):
-        """Test handling of large document downloads."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            # Simulate 5MB document
-            large_content = b'x' * (5 * 1024 * 1024)
-            mock_response.read.return_value = large_content
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            result = fetch_document('S100A001', api_key='test_key')
-            
-            assert len(result) == 5 * 1024 * 1024
-            assert isinstance(result, bytes)
-    
     def test_document_not_found_scenarios(self):
         """Test various document not found scenarios."""
         not_found_scenarios = [
@@ -360,24 +273,6 @@ class TestFetchDocument:
                 
                 with pytest.raises(urllib.error.HTTPError):
                     fetch_document(doc_id, api_key='test_key')
-    
-    def test_api_key_authentication_errors(self):
-        """Test API key related authentication errors."""
-        auth_scenarios = [
-            ("", 401, "Missing API key"),
-            ("invalid_key", 401, "Invalid API key"),
-            ("expired_key", 401, "API key expired"),
-        ]
-        
-        for api_key, status_code, error_msg in auth_scenarios:
-            with patch('urllib.request.urlopen') as mock_urlopen:
-                mock_response = Mock()
-                mock_response.getcode.return_value = status_code
-                mock_response.read.return_value = error_msg.encode()
-                mock_urlopen.return_value.__enter__.return_value = mock_response
-                
-                with pytest.raises(urllib.error.HTTPError):
-                    fetch_document('S100A001', api_key=api_key)
     
 
 class TestSaveDocumentContent:
@@ -397,21 +292,6 @@ class TestSaveDocumentContent:
         assert output_path.exists()
         assert output_path.read_bytes() == zip_content
         assert output_path.suffix == '.zip'
-    
-    def test_save_large_financial_document(self, tmp_path):
-        """Test saving large financial documents (realistic file sizes)."""
-        # Simulate 10MB financial document (typical size)
-        chunk_size = len(b'XBRL_FINANCIAL_DATA')  # 19 bytes
-        target_size = 10 * 1024 * 1024  # 10MB
-        repeat_count = target_size // chunk_size
-        large_content = b'XBRL_FINANCIAL_DATA' * repeat_count
-        output_path = tmp_path / "S100B999-180-LargeCompany.zip"
-        
-        save_document_content(large_content, str(output_path))
-        
-        assert output_path.exists()
-        file_size = output_path.stat().st_size
-        assert file_size >= 9 * 1024 * 1024  # At least 9MB (allow some variance)
     
     def test_save_to_nested_directory(self, tmp_path):
         """Test saving to nested directory structure."""
@@ -507,21 +387,24 @@ class TestFilterDocuments:
         assert len(filtered) == 1
         assert filtered[0]['docID'] == 'S100A001'
     
-    def test_filter_by_industry_sector(self):
-        """Test filtering by company industry patterns."""
+    def test_filter_by_edinet_code_string_and_list_inputs(self):
+        """A bare-string edinet_codes filter behaves like a one-element list,
+        and docs missing the edinetCode field are excluded when the filter
+        is active."""
         docs = [
-            {'docID': 'S100A001', 'docTypeCode': '160', 'filerName': 'Toyota Motor Corporation', 'industry': 'Automotive'},
-            {'docID': 'S100A002', 'docTypeCode': '160', 'filerName': 'Sony Group Corporation', 'industry': 'Technology'},
-            {'docID': 'S100A003', 'docTypeCode': '160', 'filerName': 'Mitsubishi UFJ Bank', 'industry': 'Financial'},
+            {'docID': 'S100A001', 'docTypeCode': '160', 'filerName': 'Toyota Motor Corporation', 'edinetCode': 'E02144', 'secCode': '7203'},
+            {'docID': 'S100A002', 'docTypeCode': '160', 'filerName': 'Sony Group Corporation', 'edinetCode': 'E02134', 'secCode': '6758'},
+            {'docID': 'S100A003', 'docTypeCode': '160', 'filerName': 'No Code Ltd', 'secCode': '9999'},  # no edinetCode field
         ]
-        
-        # Test string and list inputs for EDINET codes
-        auto_docs = filter_documents(docs, edinet_codes='E02144')  # String input
-        tech_docs = filter_documents(docs, edinet_codes=['E02134'])  # List input
-        
-        # Should not crash with missing edinetCode field
-        assert isinstance(auto_docs, list)
-        assert isinstance(tech_docs, list)
+
+        string_input = filter_documents(docs, edinet_codes='E02144')
+        assert [d['docID'] for d in string_input] == ['S100A001']
+
+        list_input = filter_documents(docs, edinet_codes=['E02134'])
+        assert [d['docID'] for d in list_input] == ['S100A002']
+
+        both = filter_documents(docs, edinet_codes=['E02144', 'E02134'])
+        assert [d['docID'] for d in both] == ['S100A001', 'S100A002']
 
 
 class TestDownloadDocuments:
@@ -620,125 +503,25 @@ class TestGetDocumentsForDateRange:
         assert called_dates == expected_dates
     
     @patch('edinet_tools.api.fetch_documents_list')
-    def test_new_year_holiday_period(self, mock_fetch):
-        """Test handling of New Year holiday period (2025-01-01 to 2025-01-03)."""
-        mock_fetch.return_value = {'results': []}
-        
-        # New Year period - typically no filings but API should still work
-        start_date = date(2025, 1, 1)
-        end_date = date(2025, 1, 3)
-        
-        result = get_documents_for_date_range(start_date, end_date)
-        
-        assert mock_fetch.call_count == 3
-        assert isinstance(result, list)
-        # Likely empty during holidays but shouldn't crash
-    
-    @patch('edinet_tools.api.fetch_documents_list')
-    def test_golden_week_period(self, mock_fetch):
-        """Test handling of Golden Week period (late April/early May)."""
-        mock_fetch.return_value = {'results': []}
-        
-        # Golden Week 2025: April 29 - May 5
-        start_date = date(2025, 4, 29)
-        end_date = date(2025, 5, 5)
-        
-        result = get_documents_for_date_range(start_date, end_date)
-        
-        assert mock_fetch.call_count == 7  # 7 days in range
-        assert isinstance(result, list)
-    
-    @patch('edinet_tools.api.fetch_documents_list')
-    def test_earnings_season_filtering(self, mock_fetch):
-        """Test filtering during earnings season with high volume."""
-        # Mock high-volume earnings period response
+    def test_date_range_applies_filters_across_days(self, mock_fetch):
+        """Filters passed to get_documents_for_date_range apply to every
+        day's results: 3 docs/day mocked, the unlisted filer dropped by
+        require_sec_code, 2 kept per day over 5 days."""
         mock_fetch.return_value = {
             'results': [
-                {'docID': 'S100A001', 'docTypeCode': '160', 'filerName': 'Company A', 'secCode': '7203'},
-                {'docID': 'S100A002', 'docTypeCode': '180', 'filerName': 'Company B', 'secCode': '6758'},
-                {'docID': 'S100A003', 'docTypeCode': '999', 'filerName': 'Company C'},  # Non-earnings
+                {'docID': 'S100A001', 'docTypeCode': '160', 'filerName': 'Company A', 'edinetCode': 'E12345', 'secCode': '7203'},
+                {'docID': 'S100A002', 'docTypeCode': '180', 'filerName': 'Company B', 'edinetCode': 'E12346', 'secCode': '6758'},
+                {'docID': 'S100A003', 'docTypeCode': '160', 'filerName': 'Unlisted Fund', 'edinetCode': 'E12347', 'secCode': None},
             ]
         }
-        
-        # Q4 earnings period
-        start_date = date(2025, 2, 10)
-        end_date = date(2025, 2, 14)
-        
+
         result = get_documents_for_date_range(
-            start_date, end_date,
-            doc_type_codes=['160', '180'],  # Earnings reports only
-            require_sec_code=True  # Listed companies only
+            date(2025, 2, 10), date(2025, 2, 14),  # Mon-Fri
+            doc_type_codes=['160', '180'],
+            require_sec_code=True,
         )
-        
-        # Should filter to only earnings documents with securities codes
-        earnings_docs = [doc for doc in result if doc.get('secCode')]
-        assert len(earnings_docs) >= 0  # May be filtered out
-    
-    @patch('edinet_tools.api.fetch_documents_list')
-    def test_weekend_handling(self, mock_fetch):
-        """Test that weekends are handled (even though typically no filings)."""
-        mock_fetch.return_value = {'results': []}
-        
-        # Weekend: Saturday 2025-01-04 to Sunday 2025-01-05
-        start_date = date(2025, 1, 4)
-        end_date = date(2025, 1, 5)
-        
-        result = get_documents_for_date_range(start_date, end_date)
-        
-        assert mock_fetch.call_count == 2
-        assert isinstance(result, list)
-        # Weekends typically empty but should not crash
 
-
-class TestAPIWorkflow:
-    """Test realistic API workflow patterns (consolidated from test_api_smoke.py)."""
-    
-    def test_find_and_download_document_workflow(self):
-        """Test typical workflow pattern: find documents -> select -> download."""
-        # Test the workflow pattern with mock data (avoiding complex API mocking)
-        mock_doc_list = {
-            'results': [
-                {
-                    'docID': 'S100TARGET',
-                    'edinetCode': 'E02144',
-                    'docTypeCode': '160', 
-                    'filerName': 'TARGET COMPANY',
-                    'submitDateTime': '2025-06-16 15:30:00',
-                    'secCode': '7203'
-                }
-            ]
-        }
-        
-        mock_zip_content = b'fake_zip_content'
-        
-        # Simulate workflow logic
-        # 1. Validate document list structure
-        assert 'results' in mock_doc_list
-        assert len(mock_doc_list['results']) == 1
-        
-        target_doc = mock_doc_list['results'][0]
-        assert target_doc['docID'] == 'S100TARGET'
-        assert target_doc['docTypeCode'] == '160'  # Semi-annual report
-        
-        # 2. Validate document content would be accessible
-        assert isinstance(mock_zip_content, bytes)
-        assert len(mock_zip_content) > 0
-    
-    def test_api_key_parameter_handling(self):
-        """Test that API key is properly handled across different functions."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = Mock()
-            mock_response.getcode.return_value = 200
-            mock_response.read.return_value = b'{"results": []}'
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-            
-            # Test with API key
-            fetch_documents_list('2025-06-16', api_key='my_secret_key')
-            
-            # Verify API key was included in request
-            called_url = mock_urlopen.call_args[0][0]
-            assert 'my_secret_key' in str(called_url)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        assert mock_fetch.call_count == 5
+        assert len(result) == 10  # 2 kept docs x 5 days
+        assert all(doc['docTypeCode'] in ('160', '180') for doc in result)
+        assert all(doc['secCode'] is not None for doc in result)

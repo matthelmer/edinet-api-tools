@@ -41,19 +41,19 @@ def _load_segments_fixture(name: str):
 
 
 class TestCriticalDocumentTypes:
-    """Test the 3 most critical document types: 140, 160, 180"""
-    
+    """Test core periodic/event doc types: 140 (quarterly, historical), 160, 180"""
+
     def setup_method(self):
         """Set up realistic test data for critical document types."""
-        # Type 140 - Internal Control Report data
+        # Type 140 - Quarterly Report (abolished Apr 2024; historical filings only)
         self.type_140_csv_data = [
             {
-                'filename': 'internal_control.csv',
+                'filename': 'quarterly.csv',
                 'data': [
                     {'要素ID': 'jpdei_cor:EDINETCodeDEI', '項目名': 'EDINET Code', '値': 'E02144'},
                     {'要素ID': 'jpdei_cor:FilerNameInJapaneseDEI', '項目名': '会社名', '値': 'トヨタ自動車株式会社'},
-                    {'要素ID': 'jpcrp_cor:InternalControlReportTextBlock', '項目名': 'Internal Control Report', 
-                     '値': '当社の内部統制システムについて報告いたします。経営陣は財務報告に係る内部統制の整備及び運用状況について評価を行いました。'},
+                    {'要素ID': 'jpcrp_cor:QuarterlyBusinessResultsTextBlock', '項目名': 'Business Results',
+                     '値': '当第3四半期連結累計期間の経営成績について報告いたします。売上高は前年同期比で増収となりました。'},
                     {'要素ID': 'jpcrp_cor:CompanyNameCoverPage', '項目名': 'Company Name', '値': 'TOYOTA MOTOR CORPORATION'}
                 ]
             }
@@ -89,29 +89,29 @@ class TestCriticalDocumentTypes:
             }
         ]
 
-    def test_internal_control_report_140_complete_extraction(self):
-        """Type 140: Internal Control Reports must extract all data without loss"""
+    def test_quarterly_report_140_complete_extraction(self):
+        """Type 140 (quarterly, historical): must extract all data without loss"""
         result = process_raw_csv_data(self.type_140_csv_data, 'S100TEST1', '140', '')
-        
-        # Must extract core metadata  
+
+        # Must extract core metadata
         assert result['doc_id'] == 'S100TEST1'
         assert result['doc_type_code'] == '140'
         assert result['company_name_ja'] == 'トヨタ自動車株式会社'
         assert result['edinet_code'] == 'E02144'
         # company_name_en may not be present in all documents
-        
+
         # Must preserve Japanese text content
         assert 'text_blocks' in result
-        internal_control_text = None
+        business_results_text = None
         for block in result['text_blocks']:
             content = block.get('content') or block.get('content_jp', '')
-            if '内部統制システム' in content:
-                internal_control_text = content
+            if '第3四半期' in content:
+                business_results_text = content
                 break
-        
-        assert internal_control_text is not None
-        assert '内部統制システム' in internal_control_text
-        assert '経営陣' in internal_control_text
+
+        assert business_results_text is not None
+        assert '経営成績' in business_results_text
+        assert '売上高' in business_results_text
 
     def test_semi_annual_report_160_financial_metrics(self):
         """Type 160: Semi-Annual Reports must extract financial metrics accurately.
@@ -199,7 +199,6 @@ class TestCriticalDocumentTypes:
         assert result['doc_type_code'] == '180' 
         assert result['company_name_ja'] == 'ソフトバンクグループ株式会社'
         # company_name_en may not be present in all documents
-        # assert result['company_name_en'] == 'SOFTBANK GROUP CORP.'
         assert result['edinet_code'] == 'E02778'
         
         # Must extract submission reason (critical for extraordinary reports)
@@ -219,7 +218,7 @@ class TestCriticalDocumentTypes:
     def test_all_document_types_preserve_japanese_text(self):
         """Ensure no Japanese text is lost or corrupted across all document types"""
         test_cases = [
-            (self.type_140_csv_data, '140', ['内部統制システム', '経営陣', '財務報告']),
+            (self.type_140_csv_data, '140', ['第3四半期', '経営成績', '売上高']),
             (self.type_160_csv_data, '160', ['第2四半期', '売上高', '6兆5,086億円']),
             (self.type_180_csv_data, '180', ['取締役会', '全株式を取得', 'テクノロジー事業'])
         ]

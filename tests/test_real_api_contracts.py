@@ -16,56 +16,28 @@ from edinet_tools.api import (
 )
 
 
+def _load_api_key_or_skip() -> str:
+    """Load the real EDINET API key, or skip the test if unavailable."""
+    import os
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    api_key = os.environ.get('EDINET_API_KEY')
+
+    if not api_key:
+        pytest.skip("EDINET_API_KEY not found - integration tests skipped (set it in .env)")
+    if len(api_key.strip()) < 10:
+        pytest.skip(f"EDINET_API_KEY too short ({len(api_key)} chars) - integration tests skipped")
+    return api_key
+
+
 @pytest.mark.integration
 class TestRealAPIContracts:
     """Tests that validate real EDINET API behavior and contracts"""
-    
+
     def setup_method(self):
-        """Set up API key for integration tests"""
-        import os
-        from dotenv import load_dotenv
-        
-        # Load .env file to get API key
-        load_dotenv()
-        self.api_key = os.environ.get('EDINET_API_KEY')
-        
-        if not self.api_key:
-            pytest.skip("❌ EDINET_API_KEY NOT FOUND - integration tests SKIPPED (set API key in .env file)")
-        
-        # Check if API key appears to be valid format
-        if len(self.api_key.strip()) < 10:  # Basic length check
-            pytest.skip(f"❌ API KEY TOO SHORT: {len(self.api_key)} chars (expected >10) - integration tests SKIPPED")
-        
-        # Debug: Show exactly what key is being found and where it's coming from
-        print(f"🔑 EDINET_API_KEY found (length: {len(self.api_key)} chars)")
-        print(f"   Key preview: '{self.api_key[:12]}...' (showing first 12 chars)")
-        print(f"   Key repr: {repr(self.api_key)}")
-        
-        # Check multiple sources to see where it might be coming from
-        import os
-        print(f"   Direct os.environ: {len(os.environ.get('EDINET_API_KEY', ''))} chars")
-        
-        try:
-            from edinet_tools.config import EDINET_API_KEY as CONFIG_KEY
-            print(f"   From config module: {len(CONFIG_KEY) if CONFIG_KEY else 0} chars")
-            if CONFIG_KEY and len(CONFIG_KEY) != len(self.api_key):
-                print(f"   ⚠️  MISMATCH: test={len(self.api_key)} vs config={len(CONFIG_KEY)}")
-        except ImportError:
-            print("   Config module not available")
-        
-        # Check .env file directly
-        try:
-            with open('.env', 'r') as f:
-                for line in f:
-                    if line.startswith('EDINET_API_KEY'):
-                        env_key = line.split('=', 1)[1].strip().strip('"').strip("'")
-                        print(f"   From .env file: {len(env_key)} chars")
-                        break
-        except FileNotFoundError:
-            print("   No .env file found")
-        
-        print("✅ Proceeding with integration tests")
-    
+        self.api_key = _load_api_key_or_skip()
+
     def test_fetch_documents_list_recent_date(self):
         """Test document list fetch for a recent date (any day)"""
         # Use yesterday's date - simple and reliable
@@ -203,76 +175,14 @@ class TestRealAPIContracts:
                 'invalid' in result_str or 'bad request' in result_str or
                 'status' in result_str), f"Expected error response, got: {result_str[:200]}"
     
-    def test_api_rate_limit_respectful_usage(self):
-        """Verify our API usage patterns are respectful"""
-        import time
-        
-        # Make 3 quick API calls with small delays using recent dates
-        start_time = time.time()
-        for days_back in range(1, 4):
-            test_date = date.today() - timedelta(days=days_back)
-            date_str = test_date.strftime('%Y-%m-%d')
-            result = fetch_documents_list(date_str, api_key=self.api_key)
-            assert 'results' in result
-            time.sleep(0.1)  # Minimal delay to avoid rate limiting
-        
-        total_time = time.time() - start_time
-        
-        # Should complete without errors (no rate limiting)
-        # No strict timing assertion since we want fast tests
-        print(f"3 API calls completed in {total_time:.1f} seconds")
-
 
 @pytest.mark.integration
 class TestCriticalDocumentTypeRetrieval:
-    """Integration tests focused on critical document types 140, 160, 180"""
-    
+    """Integration tests for periodic/event report retrieval (160, 180; 140 historical-only)"""
+
     def setup_method(self):
-        """Set up API key for integration tests"""
-        import os
-        from dotenv import load_dotenv
-        
-        # Load .env file to get API key
-        load_dotenv()
-        self.api_key = os.environ.get('EDINET_API_KEY')
-        
-        if not self.api_key:
-            pytest.skip("❌ EDINET_API_KEY NOT FOUND - integration tests SKIPPED (set API key in .env file)")
-        
-        # Check if API key appears to be valid format
-        if len(self.api_key.strip()) < 10:  # Basic length check
-            pytest.skip(f"❌ API KEY TOO SHORT: {len(self.api_key)} chars (expected >10) - integration tests SKIPPED")
-        
-        # Debug: Show exactly what key is being found and where it's coming from
-        print(f"🔑 EDINET_API_KEY found (length: {len(self.api_key)} chars)")
-        print(f"   Key preview: '{self.api_key[:12]}...' (showing first 12 chars)")
-        print(f"   Key repr: {repr(self.api_key)}")
-        
-        # Check multiple sources to see where it might be coming from
-        import os
-        print(f"   Direct os.environ: {len(os.environ.get('EDINET_API_KEY', ''))} chars")
-        
-        try:
-            from edinet_tools.config import EDINET_API_KEY as CONFIG_KEY
-            print(f"   From config module: {len(CONFIG_KEY) if CONFIG_KEY else 0} chars")
-            if CONFIG_KEY and len(CONFIG_KEY) != len(self.api_key):
-                print(f"   ⚠️  MISMATCH: test={len(self.api_key)} vs config={len(CONFIG_KEY)}")
-        except ImportError:
-            print("   Config module not available")
-        
-        # Check .env file directly
-        try:
-            with open('.env', 'r') as f:
-                for line in f:
-                    if line.startswith('EDINET_API_KEY'):
-                        env_key = line.split('=', 1)[1].strip().strip('"').strip("'")
-                        print(f"   From .env file: {len(env_key)} chars")
-                        break
-        except FileNotFoundError:
-            print("   No .env file found")
-        
-        print("✅ Proceeding with integration tests")
-    
+        self.api_key = _load_api_key_or_skip()
+
     def test_document_type_filtering_in_real_data(self):
         """Test that we can find and filter critical document types in real API data"""
         # Search recent days to find critical document types

@@ -671,27 +671,5 @@ class TestProcessorWithRealisticNoiseFixture:
             }
 
 
-if __name__ == "__main__":
-    # Run tests if pytest is available
-    try:
-        pytest.main([__file__, "-v"])
-    except ImportError:
-        print("pytest not available. Install with: pip install pytest")
-        print("Running basic processor validation...")
-        
-        # Basic validation tests
-        mock_data = [{'filename': 'test.csv', 'data': [
-            {'要素ID': 'test:element', '項目名': 'Test', '値': 'value'}
-        ]}]
-        
-        # Test each processor can be instantiated
-        base_proc = BaseDocumentProcessor(mock_data, 'TEST001', '999')
-        assert len(base_proc.all_records) == 1
-        
-        securities_proc = SecuritiesReportProcessor(mock_data, 'TEST002', '120') 
-        assert securities_proc.doc_type_code == '120'
-        
-        ic_proc = InternalControlReportProcessor(mock_data, 'TEST003', '235')
-        assert ic_proc.doc_type_code == '235'
         
         print("✅ Basic processor validation passed!")

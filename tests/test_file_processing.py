@@ -103,10 +103,10 @@ jpcrp_cor:BusinessResultsTextBlock\t事業の状況\t当第2四半期連結累�
             f.write(b'\xff\xfe')  # UTF-16 BOM
             f.write('normal text,bad\xff\xfe characters'.encode('utf-8', errors='ignore'))
         
-        # Should not crash
+        # Graceful-degradation contract: never raises; returns parsed
+        # records or None, nothing else.
         records = read_csv_file(bad_file)
-        # May return None, but should not raise exception
-        # This is acceptable - we handle graceful degradation
+        assert records is None or isinstance(records, list)
 
 
 class TestZipFileProcessing:

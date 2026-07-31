@@ -258,23 +258,6 @@ class TestCSVDataIntegrity:
         assert len(translations) > 0, "Translations dictionary should not be empty"
 
 
-if __name__ == "__main__":
-    # Run tests if pytest is available
-    try:
-        pytest.main([__file__, "-v"])
-    except ImportError:
-        print("pytest not available. Install with: pip install pytest")
-        print("Running basic test validation...")
-        
-        # Basic validation
-        assert ticker_to_edinet('7203') == 'E02144'
-        assert resolve_company('7203') == 'E02144'
-        assert len(search_companies('Toyota')) > 0
-        assert get_company_info('E02144') is not None
-        assert len(get_supported_companies()) > 0
-        
-        print("✅ Basic validation passed!")
-
 class TestWidthFoldedSearch:
     """Full-width / half-width folding in the data.py search layer (0.8.0).
 

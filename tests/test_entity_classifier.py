@@ -219,24 +219,6 @@ class TestUnknownEntities:
 class TestSecuritiesCodeFormatting:
     """Test securities code extraction and formatting."""
 
-    def test_securities_code_is_4_digits(self, classifier):
-        """Securities codes should be 4-digit format."""
-        # Toyota has 5-digit code in data (72030) that should become 7203
-        code = classifier.get_securities_code('E02144')
-        if code:
-            assert len(code) == 4 or len(code) == 5  # Some may not have trailing 0
-            assert code.isdigit()
-
-    def test_no_securities_code_for_unlisted(self, classifier):
-        """Unlisted entities typically have no securities code."""
-        # Find an unlisted entity
-        for edinet_code, entity in classifier._edinet_entities.items():
-            if not entity['is_listed']:
-                code = classifier.get_securities_code(edinet_code)
-                # Many unlisted entities have no code
-                # (this is expected behavior, not a test failure)
-                break
-
     def test_no_securities_code_for_unknown(self, classifier):
         """Unknown entities should return None for securities code."""
         assert classifier.get_securities_code('E99999') is None

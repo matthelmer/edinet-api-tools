@@ -29,11 +29,7 @@ def set_test_env_vars(request):
     is_integration_test = request.node.get_closest_marker('integration') is not None
 
     original_env = {}
-    test_env_vars = {
-        'LLM_API_KEY': 'test-llm-key',
-        'LLM_MODEL': 'claude-4-sonnet',
-        'LLM_FALLBACK_MODEL': 'gpt-5-mini',
-    }
+    test_env_vars = {}
     if not is_integration_test:
         test_env_vars['EDINET_API_KEY'] = 'test-api-key'
 
@@ -48,3 +44,18 @@ def set_test_env_vars(request):
             os.environ.pop(key, None)
         else:
             os.environ[key] = original_value
+
+
+@pytest.fixture(autouse=True)
+def reset_module_client():
+    """Reset the module-level client singleton after every test.
+
+    Without this, a test that calls configure() while EdinetClient is
+    patched leaves the stale Mock in edinet_tools._client._client, and
+    every later test that touches the module-level API silently talks to
+    that Mock (found 2026-07-30: two tests had been skip-passing on the
+    leaked Mock's empty results since the singleton pattern landed).
+    """
+    yield
+    from edinet_tools import _client
+    _client._reset_client()
