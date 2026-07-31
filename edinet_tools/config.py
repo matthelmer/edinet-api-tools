@@ -14,32 +14,8 @@ else:
 
 EDINET_API_KEY = os.environ.get('EDINET_API_KEY')
 
-# Unified LLM API Key - can be Gemini, Claude, OpenAI, etc. depending on llm plugin
-# Check multiple common API key environment variables
-LLM_API_KEY = (
-    os.environ.get('LLM_API_KEY') or
-    os.environ.get('GOOGLE_API_KEY') or
-    os.environ.get('ANTHROPIC_API_KEY') or
-    os.environ.get('OPENAI_API_KEY')
-)
-
-# Specify default LLM model names (via llm library - install plugins as needed)
-# Popular options: claude-4-sonnet, gpt-4o-mini, gemini-2.0-flash (requires llm-gemini)
-LLM_MODEL = os.environ.get('LLM_MODEL', 'claude-4-sonnet')
-LLM_FALLBACK_MODEL = os.environ.get('LLM_FALLBACK_MODEL', 'gpt-4o-mini')
-
-AZURE_OPENAI_API_KEY = os.environ.get('AZURE_OPENAI_API_KEY')
-AZURE_OPENAI_ENDPOINT = os.environ.get('AZURE_OPENAI_ENDPOINT')
-AZURE_OPENAI_API_VERSION = os.environ.get('AZURE_OPENAI_API_VERSION')
-AZURE_OPENAI_DEPLOYMENT = os.environ.get('AZURE_OPENAI_DEPLOYMENT')
-
-
-# Check for required keys and log warnings if missing
 if not EDINET_API_KEY:
     logging.warning("EDINET_API_KEY not set in .env file.")
-
-if not LLM_API_KEY:
-    logging.warning("No LLM API key found (set GOOGLE_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY). LLM analysis disabled.")
 
 # Complete EDINET document types mapping
 # Based on official EDINET documentation and API specifications

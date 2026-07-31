@@ -34,12 +34,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-analysis = [
-    "llm>=0.10.0",
-    "pydantic>=2.0.0",
-    "matplotlib>=3.3.0",
-    "plotly>=5.0.0",
-]
 dev = [
     "pytest>=6.0.0",
     "pytest-cov>=2.0.0",
