@@ -136,3 +136,37 @@ class TestIdentitiesAnnotate:
         report = make_report(equity_ratio=Decimal('0.30'),
                              net_assets=600, total_assets=1000)  # J-GAAP
         assert apply_identities(report, [scoped]) == []
+
+
+class TestExtractionFlagsOnBaseType:
+    def test_default_empty_on_any_report(self):
+        from edinet_tools.parsers.base import ParsedReport
+        r = ParsedReport(doc_id='X', doc_type_code='350')
+        assert r.extraction_flags == []
+
+    def test_to_dict_serializes_flags_as_plain_dicts(self):
+        report = make_report(equity_ratio=Decimal('27056.2'))
+        apply_validation(report, BOUNDS, [])
+        d = report.to_dict()
+        assert isinstance(d['extraction_flags'], list)
+        assert d['extraction_flags'][0]['severity'] == 'withheld'
+        assert d['extraction_flags'][0]['field'] == 'equity_ratio'
+
+    def test_to_dict_empty_flags_is_empty_list(self):
+        report = make_report()
+        assert report.to_dict()['extraction_flags'] == []
+
+
+class TestApplyValidation:
+    def test_extends_report_flags_with_both_kinds(self):
+        report = make_report(equity_ratio=Decimal('27056.2'),
+                             net_assets=600, total_assets=1000,
+                             total_liabilities=-5)
+        bounds = BOUNDS + [Bound(field='total_liabilities', min_value=0)]
+        apply_validation(report, bounds, [EQUITY_IDENTITY])
+        severities = {f.severity for f in report.extraction_flags}
+        # equity_ratio withheld by bound BEFORE the identity runs, so the
+        # identity is skipped (missing operand) — order is load-bearing
+        assert severities == {'withheld'}
+        assert report.equity_ratio is None
+        assert report.total_liabilities is None

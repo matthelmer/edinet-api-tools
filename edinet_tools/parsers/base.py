@@ -24,6 +24,7 @@ class ParsedReport:
         raw_fields: All XBRL elements by element_id (nothing lost)
         unmapped_fields: Elements not mapped to explicit fields (excluding TextBlocks)
         text_blocks: TextBlock elements by name
+        extraction_flags: Validation findings (bounds withheld / identities annotated)
     """
     doc_id: str
     doc_type_code: str
@@ -32,6 +33,7 @@ class ParsedReport:
     unmapped_fields: dict[str, Any] = field(default_factory=dict)
     text_blocks: dict[str, Any] = field(default_factory=dict)
     raw_facts: list[Fact] = field(default_factory=list)
+    extraction_flags: list = field(default_factory=list)
 
     def fields(self) -> list[str]:
         """List all field names for this report type."""
@@ -43,8 +45,12 @@ class ParsedReport:
         for f in dataclass_fields(self):
             value = getattr(self, f.name)
             # Skip complex fields that don't serialize well
-            if f.name not in ('raw_fields', 'unmapped_fields', 'text_blocks'):
-                result[f.name] = value
+            if f.name in ('raw_fields', 'unmapped_fields', 'text_blocks'):
+                continue
+            if f.name == 'extraction_flags':
+                result[f.name] = [flag.to_dict() for flag in value]
+                continue
+            result[f.name] = value
         return result
 
     def __repr__(self) -> str:
