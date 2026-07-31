@@ -362,7 +362,7 @@ def test_entity_by_corporate_number_empty():
 def test_search_smbc_half_width_finds_full_width_catalog():
     """Prod-data regression: half-width SMBC query finds full-width catalog entry.
 
-    Catalog stores ＳＭＢＣ日興証券株式会社 (full-width SMBC); corpjapan
+    Catalog stores ＳＭＢＣ日興証券株式会社 (full-width SMBC); downstream
     extraction often yields SMBC日興証券株式会社 (half-width). Pre-v0.6.0
     these don't match; after NFKC normalization they collapse to the
     same key and resolve to E23615.

@@ -149,7 +149,7 @@ class TestSecuritiesExtraction:
         assert r.net_sales is None
 
     def test_csv_files_param(self):
-        """Verify csv_files= parameter path (used by corpjapan)."""
+        """Verify csv_files= parameter path (used by downstream consumers)."""
         from edinet_tools.parsers.extraction import extract_csv_from_zip
         rows = self._base_rows()
         zip_bytes = make_zip_with_rows(rows)

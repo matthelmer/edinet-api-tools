@@ -252,7 +252,7 @@ class SecuritiesReport(ParsedReport):
     equity_ratio: Decimal | None = None
     roe: Decimal | None = None
 
-    # IFRS summary metrics (v0.7.2+). Populated from
+    # IFRS summary metrics (v0.7.1+). Populated from
     # jpcrp_cor:*IFRSSummaryOfBusinessResults XBRL elements at
     # CurrentYearDuration / CurrentYearInstant context. None when
     # the filing is not IFRS or the field is absent / null-marker.
@@ -561,7 +561,7 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         roe_str = extract_value(csv_files, ELEMENT_MAP['roe_usgaap'], context_patterns=patterns)
     roe = parse_percentage(roe_str)
 
-    # IFRS summary CurrentYear metrics (v0.7.2+).
+    # IFRS summary CurrentYear metrics (v0.7.1+).
     # Always extracted; None on non-IFRS rows where the element IDs aren't present.
     # Note: extracted independently of the J-GAAP-first waterfall above, so
     # consumers can distinguish IFRS-summary truth from waterfall-picked values.
@@ -674,7 +674,7 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         equity_ratio=equity_ratio,
         roe=roe,
 
-        # IFRS summary metrics (v0.7.2+)
+        # IFRS summary metrics (v0.7.1+)
         ifrs_summary_basic_eps=ifrs_summary_basic_eps,
         ifrs_summary_roe=ifrs_summary_roe,
         ifrs_summary_bps=ifrs_summary_bps,

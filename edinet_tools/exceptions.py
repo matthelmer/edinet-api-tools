@@ -70,8 +70,7 @@ class CompanyNotFoundError(EdinetError):
             message += f" Did you mean: {', '.join(self.suggestions[:3])}?"
         else:
             message += (
-                f" Use edinet_tools.search_companies('{identifier}') to find available companies, "
-                f"or edinet_tools.get_supported_companies() to see all supported companies."
+                f" Use edinet_tools.search_entities('{identifier}') to search the entity catalog."
             )
             
         super().__init__(message)

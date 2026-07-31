@@ -76,7 +76,7 @@ def test_middle_dot_stripped():
 
 
 def test_smbc_variants_collapse():
-    # Real-world variance from corpjapan prod data:
+    # Real-world variance from production extraction pipelines:
     # catalog stores ＳＭＢＣ (full-width); extraction yields SMBC (half-width).
     # Both must normalize to the same key.
     assert normalize_for_matching("ＳＭＢＣ日興証券株式会社") == \
