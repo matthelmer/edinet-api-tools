@@ -373,3 +373,28 @@ class TestElementMap:
         for key in dei_keys:
             assert ELEMENT_MAP[key].startswith('jpdei_cor:'), \
                 f"{key} should use jpdei_cor namespace"
+
+
+class TestTargetNameLabelStrip:
+    # Both real label shapes observed in EDINET tender-offer CSVs:
+    # registrations lead with '１【対象者名】', results with '（１）【対象者名】'
+    def test_strips_numbered_label(self):
+        from edinet_tools.parsers.extraction import strip_form_label
+        assert strip_form_label('１【対象者名】株式会社サンプル') == '株式会社サンプル'
+
+    def test_strips_parenthesized_label(self):
+        from edinet_tools.parsers.extraction import strip_form_label
+        assert strip_form_label('（１）【対象者名】サンプル工業株式会社') == 'サンプル工業株式会社'
+
+    def test_unlabeled_name_unchanged(self):
+        from edinet_tools.parsers.extraction import strip_form_label
+        assert strip_form_label('株式会社サンプル') == '株式会社サンプル'
+
+    def test_none_passes_through(self):
+        from edinet_tools.parsers.extraction import strip_form_label
+        assert strip_form_label(None) is None
+
+    def test_idempotent(self):
+        from edinet_tools.parsers.extraction import strip_form_label
+        once = strip_form_label('１【対象者名】株式会社サンプル')
+        assert strip_form_label(once) == once

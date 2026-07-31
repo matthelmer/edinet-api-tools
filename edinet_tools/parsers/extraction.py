@@ -6,6 +6,7 @@ Handles in-memory extraction of XBRL CSV data from EDINET ZIP files.
 import csv
 import io
 import logging
+import re
 import unicodedata
 import zipfile
 from datetime import date, datetime
@@ -568,3 +569,16 @@ def coerce_int(value) -> int | None:
         return int(cleaned)
     except ValueError:
         return None
+
+
+# Leading EDINET form-section label on target-company names in the
+# tender-offer document family: '１【対象者名】...' / '（１）【対象者名】...'.
+_FORM_LABEL_RE = re.compile(r'^\s*[0-9０-９()（）．.]*\s*【対象者名】\s*')
+
+
+def strip_form_label(value: Optional[str]) -> Optional[str]:
+    """Strip the leading 【対象者名】 form label from a target-company name.
+    Idempotent; None passes through."""
+    if value is None:
+        return None
+    return _FORM_LABEL_RE.sub('', value).strip()

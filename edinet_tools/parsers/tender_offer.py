@@ -22,6 +22,7 @@ from .extraction import (
     parse_date,
     parse_int,
     parse_percentage,
+    strip_form_label,
 )
 
 
@@ -209,7 +210,7 @@ def parse_tender_offer(document=None, *, csv_files=None, doc_id=None, doc_type_c
     is_amendment = amendment_flag == 'true' if amendment_flag else False
 
     # Target company info (TextBlock elements)
-    target_name = get('target_name')
+    target_name = strip_form_label(get('target_name'))
     share_class = get('share_class')
 
     # Ownership / voting rights (structured numeric fields)

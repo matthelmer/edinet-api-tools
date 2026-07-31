@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- Tender-offer family: the leading 【対象者名】 form label is stripped from target company names.
 - **Company search now matches across character widths.** Full-width Latin and digit queries (ＱＰＳ, ＫＥＹＥＮＣＥ — what Japanese IMEs naturally produce) and half-width katakana returned zero results from `search_companies` and `resolve_company_identifier`, because the search compared raw lowercased strings while catalog names mix widths (三菱ＵＦＪ carries full-width ＵＦＪ). Queries and index keys are now width-normalized, matching the behavior `search_entities` already had.
 - **The company-not-found error now suggests a function that exists.** The message pointed at `search_companies()` / `get_supported_companies()`, which were removed from the package surface in 0.2.0; it now points at `search_entities()`.
 

@@ -21,6 +21,7 @@ from .extraction import (
     parse_date,
     parse_int,
     parse_percentage,
+    strip_form_label,
 )
 
 
@@ -175,7 +176,7 @@ def parse_tender_offer_report(document=None, *, csv_files=None, doc_id=None, doc
     is_amendment = amendment_flag == 'true' if amendment_flag else False
 
     # Target and results
-    target_name = get('target_name')
+    target_name = strip_form_label(get('target_name'))
     share_classes_text = get('share_classes_text')
     shares_acquired_text = get('shares_acquired_text')
     voting_rights_purchased = parse_int(get('voting_rights_purchased'))
