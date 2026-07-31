@@ -137,6 +137,31 @@ report.raw_fields   # All XBRL elements by element ID
 report.text_blocks  # Narrative text block content
 ```
 
+### Validation
+
+Typed numeric fields are checked at parse time against structural rules —
+what a value can possibly be, never what is typical. Findings land in
+`report.extraction_flags`:
+
+- **Bounds withhold.** A value that is structurally impossible under its
+  field's name (e.g. a "ratio" of 27,056) means the element mapping is wrong,
+  not the filing. The typed field is set to `None` and a flag records the
+  field, source element, value, and rule. The raw value always remains in
+  `raw_fields`.
+- **Identities annotate.** Cross-field accounting checks (e.g. equity ratio
+  vs net assets / total assets) cannot tell which operand is wrong — and the
+  filing is often internally consistent under a different grain — so a
+  mismatch is recorded as a flag but no field is altered.
+
+The library never invents a number a document didn't state, and never
+suppresses a stated number because it disagrees with a computed one.
+
+```python
+report = doc.parse()
+for flag in report.extraction_flags:
+    print(flag.field, flag.severity, flag.rule, flag.value)
+```
+
 ### Download Formats
 
 ```python

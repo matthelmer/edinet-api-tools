@@ -95,8 +95,9 @@ class TestSecuritiesExtraction:
             # Per-share
             make_csv_row('jpcrp_cor:NetAssetsPerShareSummaryOfBusinessResults', 'CurrentYearInstant', '2345.67'),
             make_csv_row('jpcrp_cor:BasicEarningsLossPerShareSummaryOfBusinessResults', 'CurrentYearDuration', '123.45'),
-            # Ratios
-            make_csv_row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults', 'CurrentYearInstant', '40.0'),
+            # Ratios (XBRL "pure"-typed element: decimal fraction, not a raw
+            # percentage — 0.400 = 40.0%, matching real filings)
+            make_csv_row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults', 'CurrentYearInstant', '0.400'),
             make_csv_row('jpcrp_cor:RateOfReturnOnEquitySummaryOfBusinessResults', 'CurrentYearDuration', '8.5'),
             # Employees
             make_csv_row('jpcrp_cor:NumberOfEmployees', 'CurrentYearInstant', '5000'),
@@ -133,8 +134,8 @@ class TestSecuritiesExtraction:
         assert r.net_assets_per_share == Decimal('2345.67')
         assert r.earnings_per_share == Decimal('123.45')
 
-        # Ratios (stored as raw percentage value, not divided by 100)
-        assert r.equity_ratio == Decimal('40.0')
+        # Ratios (decimal fraction: "pure"-typed XBRL element, not a raw percentage)
+        assert r.equity_ratio == Decimal('0.400')
         assert r.roe == Decimal('8.5')
 
         # Employees
@@ -207,8 +208,9 @@ class TestSecuritiesExtraction:
             make_csv_row('jpcrp_cor:CashFlowsFromUsedInFinancingActivitiesIFRSSummaryOfBusinessResults', 'CurrentYearDuration', '-400000000000'),
             # IFRS Summary ratios/per-share
             make_csv_row('jpcrp_cor:BasicEarningsLossPerShareIFRSSummaryOfBusinessResults', 'CurrentYearDuration', '289.45'),
-            # Real equity-ratio element (親会社所有者帰属持分比率（IFRS）; pure decimal)
-            make_csv_row('jpcrp_cor:RatioOfOwnersEquityToGrossAssetsIFRSSummaryOfBusinessResults', 'CurrentYearInstant', '36.4'),
+            # Real equity-ratio element (親会社所有者帰属持分比率（IFRS）; pure decimal:
+            # 0.364 = 36.4%, matching real filings)
+            make_csv_row('jpcrp_cor:RatioOfOwnersEquityToGrossAssetsIFRSSummaryOfBusinessResults', 'CurrentYearInstant', '0.364'),
             # Misnomer element: label is 1株当たり親会社所有者帰属持分 (BPS, yen)
             make_csv_row('jpcrp_cor:EquityToAssetRatioIFRSSummaryOfBusinessResults', 'CurrentYearInstant', '5150.56'),
             make_csv_row('jpcrp_cor:RateOfReturnOnEquityIFRSSummaryOfBusinessResults', 'CurrentYearDuration', '15.8'),
@@ -255,7 +257,7 @@ class TestSecuritiesExtraction:
         assert r.earnings_per_share == Decimal('289.45')
 
         # Ratios from IFRS Summary
-        assert r.equity_ratio == Decimal('36.4')
+        assert r.equity_ratio == Decimal('0.364')
         assert r.roe == Decimal('15.8')
 
         # Balance sheet detail from IFRS FS

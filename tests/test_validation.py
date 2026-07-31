@@ -170,3 +170,91 @@ class TestApplyValidation:
         assert severities == {'withheld'}
         assert report.equity_ratio is None
         assert report.total_liabilities is None
+
+
+HEADER = {'要素ID': '要素ID', '項目名': '項目名', 'コンテキストID': 'コンテキストID',
+          '相対年度': '相対年度', '連結・個別': '連結・個別',
+          '期間・時点': '期間・時点', 'ユニットID': 'ユニットID',
+          '単位': '単位', '値': '値'}
+
+
+def _row(eid, ctx, val):
+    return {'要素ID': eid, 'コンテキストID': ctx, '値': val}
+
+
+def _csv(rows):
+    return [{'filename': 'jpcrp030000-asr-001_test.csv', 'data': rows}]
+
+
+BASE_ROWS = [
+    _row('jpdei_cor:EDINETCodeDEI', 'FilingDateInstant', 'E99999'),
+    _row('jpdei_cor:AccountingStandardsDEI', 'FilingDateInstant', 'Japan GAAP'),
+]
+
+
+class TestSecuritiesParserValidation:
+    def test_impossible_ratio_withheld_with_element_provenance(self):
+        from edinet_tools.parsers.securities import parse_securities_report
+        rows = BASE_ROWS + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '27056.2'),
+        ]
+        report = parse_securities_report(csv_files=_csv(rows),
+                                         doc_id='T1', doc_type_code='120')
+        assert report.equity_ratio is None
+        withheld = [f for f in report.extraction_flags
+                    if f.severity == 'withheld' and f.field == 'equity_ratio']
+        assert len(withheld) == 1
+        assert withheld[0].element_id == \
+            'jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults'
+        # fact bag untouched
+        assert 'jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults' \
+            in report.raw_fields
+
+    def test_identity_annotates_on_grain_mismatch(self):
+        from edinet_tools.parsers.securities import parse_securities_report
+        rows = BASE_ROWS + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jpcrp_cor:NetAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '600'),
+            _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        report = parse_securities_report(csv_files=_csv(rows),
+                                         doc_id='T2', doc_type_code='120')
+        annotated = [f for f in report.extraction_flags
+                     if f.severity == 'annotated']
+        assert len(annotated) == 1
+        assert report.equity_ratio == Decimal('0.30')  # never suppressed
+
+    def test_clean_report_has_zero_flags(self):
+        from edinet_tools.parsers.securities import parse_securities_report
+        rows = BASE_ROWS + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.60'),
+            _row('jpcrp_cor:NetAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '600'),
+            _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        report = parse_securities_report(csv_files=_csv(rows),
+                                         doc_id='T3', doc_type_code='120')
+        assert report.extraction_flags == []
+
+    def test_golden_fixtures_produce_no_withheld_flags(self):
+        # Guard-the-guard: real, correct filings must never be withheld.
+        # (Fixture-scale version of the spec's corpus acceptance test.)
+        from pathlib import Path
+        import csv as _csv_mod
+        from edinet_tools.parsers.securities import parse_securities_report
+        fixture_dir = Path(__file__).parent / 'fixtures' / 'securities'
+        for path in sorted(fixture_dir.glob('*.csv')):
+            with open(path, encoding='utf-8') as fh:
+                rows = list(_csv_mod.DictReader(fh, delimiter='\t'))
+            report = parse_securities_report(
+                csv_files=[{'filename': path.name, 'data': rows}],
+                doc_id=path.stem, doc_type_code='120')
+            withheld = [f for f in report.extraction_flags
+                        if f.severity == 'withheld']
+            assert withheld == [], f'{path.name}: {withheld}'

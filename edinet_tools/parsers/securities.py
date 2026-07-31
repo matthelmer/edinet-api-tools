@@ -27,6 +27,7 @@ from .extraction import (
     coerce_numeric_value,
     match_element_by_suffix,
 )
+from .validation import Bound, Identity, IDENTITY_TOLERANCE, apply_validation
 
 
 # XBRL Element ID mappings for Doc 120 (Securities Reports)
@@ -155,6 +156,46 @@ ELEMENT_MAP = {
     # === Cash Flow Detail ===
     'depreciation_amortization_cfo': 'jppfs_cor:DepreciationAndAmortizationOpeCF',
 }
+
+
+def _equity_ratio_reconciles(er, na, ta):
+    if ta == 0:
+        return None
+    return abs(er - na / ta) <= IDENTITY_TOLERANCE
+
+
+def _net_assets_le_total_assets(na, ta):
+    return na <= ta
+
+
+def _current_le_total_liabilities(cl, tl):
+    return cl <= tl
+
+
+# Structural bounds: possibility, never plausibility. No lower bound on
+# equity_ratio (insolvency is real). standards=None = applies to all.
+SECURITIES_BOUNDS = [
+    Bound(field='equity_ratio', max_value=Decimal('1')),
+    Bound(field='total_assets', min_value=0),
+    Bound(field='total_liabilities', min_value=0),
+    Bound(field='current_liabilities', min_value=0),
+    Bound(field='num_employees', min_value=0),
+]
+
+# Accounting identities: annotate only. The J-GAAP equity-ratio identity is
+# expected to annotate ~15% of rows pre-0.8.0 (owners-equity vs total
+# net-assets grain); that cohort is the stage-4 measurement baseline.
+SECURITIES_IDENTITIES = [
+    Identity(name='identity:equity_ratio~net_assets/total_assets',
+             operands=('equity_ratio', 'net_assets', 'total_assets'),
+             check=_equity_ratio_reconciles),
+    Identity(name='identity:net_assets<=total_assets',
+             operands=('net_assets', 'total_assets'),
+             check=_net_assets_le_total_assets),
+    Identity(name='identity:current_liabilities<=total_liabilities',
+             operands=('current_liabilities', 'total_liabilities'),
+             check=_current_le_total_liabilities),
+]
 
 # IFRS fallback elements (jpigp_cor namespace)
 # extract_financial() supports both single string and list values.
@@ -546,11 +587,13 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     # Note: EquityToAssetRatioUSGAAPSummaryOfBusinessResults IS a genuine ratio
     # (unlike its IFRS taxonomy namesake which is a BPS misnomer).
     patterns = get_context_patterns(is_consolidated, 'CurrentYearInstant')
-    equity_str = extract_value(csv_files, ELEMENT_MAP['equity_ratio'], context_patterns=patterns)
-    if not equity_str:
-        equity_str = extract_value(csv_files, ELEMENT_MAP['equity_ratio_ifrs'], context_patterns=patterns)
-    if not equity_str:
-        equity_str = extract_value(csv_files, ELEMENT_MAP['equity_ratio_usgaap'], context_patterns=patterns)
+    provenance = {}
+    equity_str = None
+    for _key in ('equity_ratio', 'equity_ratio_ifrs', 'equity_ratio_usgaap'):
+        equity_str = extract_value(csv_files, ELEMENT_MAP[_key], context_patterns=patterns)
+        if equity_str:
+            provenance['equity_ratio'] = ELEMENT_MAP[_key]
+            break
     equity_ratio = parse_percentage(equity_str)
 
     patterns = get_context_patterns(is_consolidated, 'CurrentYearDuration')
@@ -614,7 +657,7 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     from .segments import parse_segments_from_csv
     segments, segments_text_only, segments_extraction_incomplete = parse_segments_from_csv(csv_files)
 
-    return SecuritiesReport(
+    report = SecuritiesReport(
         doc_id=doc_id,
         doc_type_code=doc_type_code,
         source_files=source_files,
@@ -706,3 +749,6 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         segments_text_only=segments_text_only,
         segments_extraction_incomplete=segments_extraction_incomplete,
     )
+    apply_validation(report, SECURITIES_BOUNDS, SECURITIES_IDENTITIES,
+                     provenance=provenance)
+    return report

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Extraction validation: typed numeric fields are checked against structural
+  bounds and accounting identities at parse time. A value that is structurally
+  impossible under its field's name is withheld (field set to None) and
+  recorded in the new `extraction_flags` list on every parsed report; identity
+  mismatches are annotated without altering any field. Raw values always
+  remain in `raw_fields`.
+
 ### Fixed
 
 - **Company search now matches across character widths.** Full-width Latin and digit queries (ＱＰＳ, ＫＥＹＥＮＣＥ — what Japanese IMEs naturally produce) and half-width katakana returned zero results from `search_companies` and `resolve_company_identifier`, because the search compared raw lowercased strings while catalog names mix widths (三菱ＵＦＪ carries full-width ＵＦＪ). Queries and index keys are now width-normalized, matching the behavior `search_entities` already had.
