@@ -258,3 +258,28 @@ class TestSecuritiesParserValidation:
             withheld = [f for f in report.extraction_flags
                         if f.severity == 'withheld']
             assert withheld == [], f'{path.name}: {withheld}'
+
+
+from datetime import date
+from edinet_tools.parsers.validation import check_filing_date_sanity
+
+
+class TestFilingDateSanity:
+    def test_far_future_stated_date_annotates(self):
+        # e.g. a year-typo: stated 2027-06-15 on a doc submitted 2026-06-15
+        flag = check_filing_date_sanity(date(2027, 6, 15), date(2026, 6, 15))
+        assert flag is not None
+        assert flag.severity == 'annotated'      # warn, never overwrite
+        assert flag.field == 'filing_date'
+        assert flag.rule == 'sanity:filing_date>submit_date+30d'
+
+    def test_stated_before_submit_never_flags(self):
+        # The legitimate late-filer signal (spec stage 6, C15)
+        assert check_filing_date_sanity(date(2026, 1, 10), date(2026, 6, 15)) is None
+
+    def test_small_excess_passes(self):
+        assert check_filing_date_sanity(date(2026, 6, 20), date(2026, 6, 15)) is None
+
+    def test_missing_either_date_skips(self):
+        assert check_filing_date_sanity(None, date(2026, 6, 15)) is None
+        assert check_filing_date_sanity(date(2026, 6, 15), None) is None

@@ -160,3 +160,21 @@ def apply_validation(report, bounds, identities, provenance=None) -> None:
     flags = apply_bounds(report, bounds, provenance=provenance)
     flags.extend(apply_identities(report, identities))
     report.extraction_flags.extend(flags)
+
+
+def check_filing_date_sanity(stated, submitted):
+    """Annotate (never overwrite) when a stated cover-page filing date exceeds
+    the submit date by more than FILING_DATE_SANITY_DAYS. A stated date BEFORE
+    the submit date never flags — that is the legitimate late-filer signal."""
+    if stated is None or submitted is None:
+        return None  # skip, never fail
+    if (stated - submitted).days <= FILING_DATE_SANITY_DAYS:
+        return None
+    return ExtractionFlag(
+        field='filing_date',
+        element_id=None,
+        value=f'stated={stated.isoformat()}, submitted={submitted.isoformat()}',
+        rule=f'sanity:filing_date>submit_date+{FILING_DATE_SANITY_DAYS}d',
+        severity='annotated',
+        accounting_standard=None,
+    )

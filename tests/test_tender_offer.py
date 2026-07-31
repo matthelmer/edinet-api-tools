@@ -173,6 +173,7 @@ class TestParseTenderOffer:
         doc.doc_type_code = doc_type
         doc.filer_name = ''
         doc.filer_edinet_code = ''
+        doc.filing_datetime = None  # Explicit None to prevent Mock default
         if rows is not None:
             doc.fetch.return_value = self._make_zip_with_rows(rows)
         else:

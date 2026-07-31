@@ -200,6 +200,11 @@ def parse_tender_offer(document=None, *, csv_files=None, doc_id=None, doc_type_c
     # Filing date
     filing_date = parse_date(get('filing_date'))
 
+    # Submit date (from API metadata, if available)
+    submitted = None
+    if document is not None and getattr(document, 'filing_datetime', None):
+        submitted = document.filing_datetime.date()
+
     # Contact / legal representative
     contact_name = get('contact_name')
     contact_phone = get('contact_phone')
@@ -232,7 +237,7 @@ def parse_tender_offer(document=None, *, csv_files=None, doc_id=None, doc_type_c
     # Categorize all elements
     raw_fields, text_blocks, unmapped_fields, raw_facts = categorize_elements(csv_files, ELEMENT_MAP)
 
-    return TenderOfferReport(
+    report = TenderOfferReport(
         doc_id=doc_id,
         doc_type_code=doc_type_code,
         source_files=source_files,
@@ -277,3 +282,9 @@ def parse_tender_offer(document=None, *, csv_files=None, doc_id=None, doc_type_c
         funding_text=funding_text,
         settlement_date_text=settlement_date_text,
     )
+
+    from .validation import check_filing_date_sanity
+    sanity_flag = check_filing_date_sanity(filing_date, submitted)
+    if sanity_flag:
+        report.extraction_flags.append(sanity_flag)
+    return report
