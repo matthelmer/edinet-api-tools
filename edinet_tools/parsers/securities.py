@@ -444,6 +444,23 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
                         return parse_int(v)
         return None
 
+    def get_operating_income_by_suffix(period: str) -> int | None:
+        """Consolidated IFRS/US-GAAP operating profit for custom-namespace
+        filers (e.g. JXTG Holdings' jpcrp030000-asr_E24050-000:
+        OperatingProfitLossIFRSSummaryOfBusinessResults) — fixed element ids
+        cannot match filer-local namespaces; matched at the bare
+        (consolidated) context only, so a parent figure can never win."""
+        for canonical in ('OperatingProfitLossIFRSSummaryOfBusinessResults',
+                          'OperatingIncomeIFRSSummaryOfBusinessResults',
+                          'OperatingIncomeLossIFRSSummaryOfBusinessResults',
+                          'OperatingProfitIFRSSummaryOfBusinessResults'):
+            for row in match_element_by_suffix(csv_files, canonical):
+                if (row.get('コンテキストID', '') or '') == period:
+                    v = coerce_numeric_value(row.get('値', ''))
+                    if v:
+                        return parse_int(v)
+        return None
+
     # Try summary elements first (J-GAAP then IFRS), then fall back to FS elements
     # FS elements have their own IFRS fallback via IFRS_FALLBACK_MAP in extract_financial()
     net_sales = _coalesce(
@@ -466,6 +483,7 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     operating_income = _coalesce(
         get_fin('operating_income_ifrs_summary', 'CurrentYearDuration'),
         get_fin('operating_income_ifrs_fs', 'CurrentYearDuration'),
+        get_operating_income_by_suffix('CurrentYearDuration'),
         get_fin('operating_income_usgaap_summary', 'CurrentYearDuration'),
         None if accounting_standard in ('IFRS', 'US GAAP')
         else get_fin('operating_income_fs', 'CurrentYearDuration'),
@@ -497,6 +515,7 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     prior_operating_income = _coalesce(
         get_fin('operating_income_ifrs_summary', 'Prior1YearDuration'),
         get_fin('operating_income_ifrs_fs', 'Prior1YearDuration'),
+        get_operating_income_by_suffix('Prior1YearDuration'),
         get_fin('operating_income_usgaap_summary', 'Prior1YearDuration'),
         None if accounting_standard in ('IFRS', 'US GAAP')
         else get_fin('operating_income_fs', 'Prior1YearDuration'),

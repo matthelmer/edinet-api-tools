@@ -54,6 +54,41 @@ def test_jgaap_operating_income_unchanged():
     assert r.prior_operating_income == 3_145_292_000
 
 
+def test_ifrs_custom_namespace_operating_profit_mapped():
+    # JXTG Holdings (now ENEOS) FY2018/3: reports
+    # OperatingProfitLossIFRSSummaryOfBusinessResults under a filer-custom
+    # namespace prefix (jpcrp030000-asr_E24050-000:...) instead of the fixed
+    # jpcrp_cor: id -> the fixed-id ELEMENT_MAP lookup can never match this,
+    # so it must be caught by suffix match. IR-verified: Nikkei reported
+    # 営業利益は30%増の4875億円 for this filing (487,546,000,000 exact).
+    r = _parse('ifrs_custom_ns_opincome')
+    assert r.accounting_standard == 'IFRS'
+    assert r.operating_income == 487_546_000_000, f'expected 487546000000, got {r.operating_income}'
+    assert r.prior_operating_income == 271_138_000_000
+
+def test_insurer_operating_income_stays_none():
+    # Dai-ichi Life Holdings FY2025/3: jppfs_cor:OperatingIncomeINS ("経常収益、
+    # 保険業") is the insurance-ordinance GROSS REVENUE line, not an operating-
+    # profit concept -> must NOT be mapped into operating_income. Honest None
+    # is the correct answer here, same as any other filer with no operating-
+    # profit concept in its P&L.
+    r = _parse('insurer_jgaap')
+    assert r.accounting_standard == 'Japan GAAP'
+    assert r.operating_income is None, f'expected None, got {r.operating_income}'
+    assert r.prior_operating_income is None
+
+def test_bank_operating_income_stays_none():
+    # Resona Holdings FY2026/3: GrossOperatingProfit (業務粗利益) /
+    # NetOperatingProfitLessCreditCost / ActualNetOperatingProfit (実質業務純益
+    # family) are bank-specific profit concepts distinct from 営業利益, AND
+    # only ever appear at per-segment contexts (no bare consolidated context
+    # exists in this filing at all) -> honest None either way.
+    r = _parse('bank_jgaap')
+    assert r.accounting_standard == 'Japan GAAP'
+    assert r.operating_income is None, f'expected None, got {r.operating_income}'
+    assert r.prior_operating_income is None
+
+
 def _synthetic_filing(accounting_standard):
     """Minimal SYNTHETIC csv_files for gate-pinning. Not a real filing: a scan
     of 2,229 IFRS/US-GAAP securities reports (2026-06-09) found ZERO with a
