@@ -1,6 +1,6 @@
 # utils.py
 import os
-import pandas as pd
+import csv
 import re
 import chardet
 import tempfile
@@ -39,13 +39,31 @@ def read_csv_file(file_path):
     for encoding in list(dict.fromkeys(encodings)):
         if not encoding: continue
         try:
-            # Use low_memory=False to avoid DtypeWarning on mixed types
-            df = pd.read_csv(file_path, encoding=encoding, sep='\t', dtype=str, low_memory=False)
+            with open(file_path, encoding=encoding, newline='') as fh:
+                # strict=True rejects malformed quoting (e.g. an unterminated quoted
+                # field swallowing the rest of the file) as csv.Error, the same way
+                # pandas' C parser raised ParserError instead of silently absorbing it.
+                reader = csv.DictReader(fh, delimiter='\t', strict=True)
+                if not reader.fieldnames:
+                    # Headerless/empty file: same as pandas' EmptyDataError -> try next encoding
+                    logger.debug(f"No header row in {os.path.basename(file_path)} with encoding {encoding}")
+                    continue
+                records = []
+                for row in reader:
+                    if None in row:
+                        # Row has MORE fields than the header; DictReader stows the
+                        # overflow under a None key (restkey). pandas raised
+                        # ParserError ("Expected N fields, saw M") and rejected the
+                        # whole file for this - mirror that by failing this encoding
+                        # attempt entirely rather than returning a corrupted row shape.
+                        raise csv.Error(
+                            f"row has more fields than header {reader.fieldnames!r}: {row!r}"
+                        )
+                    # Empty cells and empty strings both become None, matching pandas' NaN->None handling
+                    records.append({k: (v if v not in ('', None) else None) for k, v in row.items()})
             logger.debug(f"Successfully read {os.path.basename(file_path)} with encoding {encoding}")
-            # Replace NaN with None to handle missing values consistently
-            df = df.replace({float('nan'): None, '': None})
-            return df.to_dict(orient='records') # Return as list of dictionaries
-        except (UnicodeDecodeError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+            return records # Return as list of dictionaries
+        except (UnicodeDecodeError, UnicodeError, csv.Error) as e:
             logger.debug(f"Failed to read {os.path.basename(file_path)} with encoding {encoding}: {e}")
             continue
         except Exception as e:

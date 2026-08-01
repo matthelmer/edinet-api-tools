@@ -1,5 +1,4 @@
 # document_processors.py
-import pandas as pd
 import logging
 from typing import List, Dict, Any, Optional
 from .parser import extract_xbrl_financial_data
