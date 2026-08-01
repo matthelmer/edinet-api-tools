@@ -10,7 +10,7 @@
   recorded in the new `extraction_flags` list on every parsed report; identity
   mismatches are annotated without altering any field. Raw values always
   remain in `raw_fields`.
-- Tender-offer reports annotate a sanity flag when the stated cover-page filing date exceeds the API submit date by more than 30 days; the stated date is never overwritten.
+- Tender-offer registration filings annotate a sanity flag when the stated cover-page filing date exceeds the API submit date by more than 30 days; the stated date is never overwritten.
 
 ### Fixed
 

@@ -172,12 +172,6 @@ class TestApplyValidation:
         assert report.total_liabilities is None
 
 
-HEADER = {'要素ID': '要素ID', '項目名': '項目名', 'コンテキストID': 'コンテキストID',
-          '相対年度': '相対年度', '連結・個別': '連結・個別',
-          '期間・時点': '期間・時点', 'ユニットID': 'ユニットID',
-          '単位': '単位', '値': '値'}
-
-
 def _row(eid, ctx, val):
     return {'要素ID': eid, 'コンテキストID': ctx, '値': val}
 
@@ -249,7 +243,9 @@ class TestSecuritiesParserValidation:
         import csv as _csv_mod
         from edinet_tools.parsers.securities import parse_securities_report
         fixture_dir = Path(__file__).parent / 'fixtures' / 'securities'
-        for path in sorted(fixture_dir.glob('*.csv')):
+        paths = sorted(fixture_dir.glob('*.csv'))
+        assert paths, 'no golden fixtures found — acceptance test would pass vacuously'
+        for path in paths:
             with open(path, encoding='utf-8') as fh:
                 rows = list(_csv_mod.DictReader(fh, delimiter='\t'))
             report = parse_securities_report(
@@ -283,3 +279,10 @@ class TestFilingDateSanity:
     def test_missing_either_date_skips(self):
         assert check_filing_date_sanity(None, date(2026, 6, 15)) is None
         assert check_filing_date_sanity(date(2026, 6, 15), None) is None
+
+    def test_exactly_threshold_days_passes(self):
+        assert check_filing_date_sanity(date(2026, 7, 15), date(2026, 6, 15)) is None  # exactly 30
+
+    def test_one_day_past_threshold_annotates(self):
+        flag = check_filing_date_sanity(date(2026, 7, 16), date(2026, 6, 15))  # 31 days
+        assert flag is not None and flag.severity == 'annotated'

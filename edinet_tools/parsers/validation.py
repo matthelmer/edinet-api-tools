@@ -15,9 +15,8 @@ A rule that cannot be evaluated (missing operand) is skipped, never failed.
 Only positively-contradicted values are withheld.
 """
 from dataclasses import dataclass
-from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 # Spec tolerance for ratio identities: "within 2 points" (0.02 on a 0-1 ratio).
 IDENTITY_TOLERANCE = Decimal('0.02')

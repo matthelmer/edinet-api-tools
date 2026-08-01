@@ -184,7 +184,8 @@ SECURITIES_BOUNDS = [
 
 # Accounting identities: annotate only. The J-GAAP equity-ratio identity is
 # expected to annotate ~15% of rows pre-0.8.0 (owners-equity vs total
-# net-assets grain); that cohort is the stage-4 measurement baseline.
+# net-assets grain); that cohort is the baseline for the planned
+# owners-equity grain split.
 SECURITIES_IDENTITIES = [
     Identity(name='identity:equity_ratio~net_assets/total_assets',
              operands=('equity_ratio', 'net_assets', 'total_assets'),

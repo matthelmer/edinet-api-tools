@@ -24,6 +24,7 @@ from .extraction import (
     parse_percentage,
     strip_form_label,
 )
+from .validation import check_filing_date_sanity
 
 
 # XBRL Element ID mappings for Doc 240/250
@@ -283,7 +284,6 @@ def parse_tender_offer(document=None, *, csv_files=None, doc_id=None, doc_type_c
         settlement_date_text=settlement_date_text,
     )
 
-    from .validation import check_filing_date_sanity
     sanity_flag = check_filing_date_sanity(filing_date, submitted)
     if sanity_flag:
         report.extraction_flags.append(sanity_flag)
