@@ -46,6 +46,13 @@ ELEMENT_MAP = {
     # === SummaryOfBusinessResults Elements ===
     'net_sales_summary': 'jpcrp_cor:NetSalesSummaryOfBusinessResults',
     'ordinary_revenue_summary': 'jpcrp_cor:OrdinaryIncomeSummaryOfBusinessResults',  # 経常収益 — banks/insurers gross revenue (distinct from OrdinaryIncomeLoss... = ordinary profit)
+    # Securities brokers (broker-ordinance filers): 営業収益 (GROSS operating
+    # revenue) — summary table then FS-level fallback. 純営業収益
+    # (NetOperatingRevenueSEC, after financial expenses) and 金融収益
+    # (FinancialRevenueORSEC, a component) are deliberately NOT mapped here —
+    # they are not the gross top-line every other net_sales tier represents.
+    'operating_revenue1_summary': 'jpcrp_cor:OperatingRevenue1SummaryOfBusinessResults',
+    'net_sales_broker_fs': 'jppfs_cor:OperatingRevenueSEC',
     'ordinary_income_summary': 'jpcrp_cor:OrdinaryIncomeLossSummaryOfBusinessResults',
     'net_income_summary': 'jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults',
     'total_assets_summary': 'jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
@@ -444,6 +451,8 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         get_fin('net_sales_ifrs_summary', 'CurrentYearDuration'),
         get_fin('net_sales_usgaap_summary', 'CurrentYearDuration'),
         get_fin('ordinary_revenue_summary', 'CurrentYearDuration'),
+        get_fin('operating_revenue1_summary', 'CurrentYearDuration'),
+        get_fin('net_sales_broker_fs', 'CurrentYearDuration'),
         get_revenue_by_suffix('CurrentYearDuration'),
         get_fin('operating_revenue_fs', 'CurrentYearDuration'),
         get_fin('net_sales_fs', 'CurrentYearDuration'),
@@ -479,6 +488,8 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         get_fin('net_sales_ifrs_summary', 'Prior1YearDuration'),
         get_fin('net_sales_usgaap_summary', 'Prior1YearDuration'),
         get_fin('ordinary_revenue_summary', 'Prior1YearDuration'),
+        get_fin('operating_revenue1_summary', 'Prior1YearDuration'),
+        get_fin('net_sales_broker_fs', 'Prior1YearDuration'),
         get_revenue_by_suffix('Prior1YearDuration'),
         get_fin('operating_revenue_fs', 'Prior1YearDuration'),
         get_fin('net_sales_fs', 'Prior1YearDuration'),
