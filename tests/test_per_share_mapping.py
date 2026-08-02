@@ -33,6 +33,18 @@ def _parse(name):
     return parse_securities_report(csv_files=_load(name), doc_id='TEST', doc_type_code='120')
 
 
+# Hermetic synthetic-row helpers (same idiom as tests/test_validation.py's
+# _row/_csv) for the non-consolidated-context regression test below — no
+# real filing carries this exact shape as far as the census went, so a
+# synthetic fixture is the only way to pin it.
+def _row(eid, ctx, val):
+    return {'要素ID': eid, 'コンテキストID': ctx, '値': val}
+
+
+def _synth_csv(rows):
+    return [{'filename': 'jpcrp030000-asr-999_test.csv', 'data': rows}]
+
+
 def test_ifrs_bps_element_feeds_net_assets_per_share():
     # Honda Motor (E02166) FY2018/3 (第94期): IFRS consolidated filer.
     # The fixed J-GAAP jpcrp_cor:NetAssetsPerShareSummaryOfBusinessResults
@@ -72,3 +84,40 @@ def test_usgaap_custom_namespace_bps_variant_feeds_net_assets_per_share():
     assert r.accounting_standard == 'US GAAP'
     assert r.net_assets_per_share == Decimal('4499.45'), \
         f'expected 4499.45, got {r.net_assets_per_share}'
+
+
+def test_usgaap_custom_namespace_bps_picks_bare_context_when_nonconsolidated():
+    """Regression pin for a real bug introduced and self-caught while
+    building get_bps_usgaap_by_suffix: get_context_patterns(False, period)
+    returns [f'{period}_NonConsolidatedMember', period] -- bare is SECOND,
+    not first -- so `patterns[0]` is the wrong context for a non-consolidated
+    filer. The fixed helper always passes the literal bare 'CurrentYearInstant'
+    string (same idiom as get_revenue_by_suffix / get_operating_income_by_suffix),
+    so it must pick the bare-context value even when is_consolidated is False.
+
+    Both real fixtures (Honda, Sony) are consolidated filers, so
+    get_context_patterns(True, 'CurrentYearInstant') == ['CurrentYearInstant']
+    and patterns[0] happens to equal the bare literal there -- those two tests
+    pass identically whether or not this fix is in place. This synthetic,
+    non-consolidated report is the only case that discriminates the two.
+    """
+    rows = [
+        _row('jpdei_cor:EDINETCodeDEI', 'FilingDateInstant', 'E99999'),
+        _row('jpdei_cor:AccountingStandardsDEI', 'FilingDateInstant', 'US GAAP'),
+        _row('jpdei_cor:WhetherConsolidatedFinancialStatementsArePreparedDEI',
+             'FilingDateInstant', 'false'),
+        # Custom-namespace element at BOTH contexts with DIFFERENT values.
+        # Correct pick (bare/consolidated-context idiom, per the class's own
+        # "parent figure can never win" contract):
+        _row('jpcrp030000-asr_E99999-000:'
+             'StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults',
+             'CurrentYearInstant', '5000.00'),
+        # The value the buggy patterns[0] version would have picked instead:
+        _row('jpcrp030000-asr_E99999-000:'
+             'StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults',
+             'CurrentYearInstant_NonConsolidatedMember', '9999.99'),
+    ]
+    r = parse_securities_report(csv_files=_synth_csv(rows), doc_id='SYNTHBPS',
+                                doc_type_code='120')
+    assert r.net_assets_per_share == Decimal('5000.00'), \
+        f'expected the bare-context value 5000.00, got {r.net_assets_per_share}'
