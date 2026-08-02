@@ -192,7 +192,14 @@ SECURITIES_BOUNDS = [
 # Accounting identities: annotate only. The J-GAAP equity-ratio identity is
 # expected to annotate ~15% of rows pre-0.8.0 (owners-equity vs total
 # net-assets grain); that cohort is the baseline for the planned
-# owners-equity grain split.
+# owners-equity grain split. The 0.8.0 IFRS/US-GAAP total-equity fallbacks
+# (get_net_assets_ifrs_total_by_suffix / get_net_assets_usgaap_total_by_suffix,
+# below) are a second, deliberate source of the same grain mix: they recover
+# net_assets at TOTAL-equity grain (incl. NCI) for rows where equity_ratio
+# stays owners-only-grain (no total-equity ratio element exists to match it),
+# so this identity can now legitimately annotate on rows it previously
+# skipped (net_assets was None pre-fix). See the fallback functions'
+# docstrings for the per-filer reasoning.
 SECURITIES_IDENTITIES = [
     Identity(name='identity:equity_ratio~net_assets/total_assets',
              operands=('equity_ratio', 'net_assets', 'total_assets'),
@@ -490,7 +497,15 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         only) that these filers simply don't tag, not a naming variant of it.
         TotalEquity is the correct IFRS analog of J-GAAP NetAssets (both include
         NCI). Matched at the bare (consolidated) context only, so a parent
-        (non-consolidated) figure can never win."""
+        (non-consolidated) figure can never win.
+
+        Mixed-grain note: this recovers net_assets at TOTAL-equity grain
+        (incl. non-controlling interest) on rows that otherwise stay owners-
+        only-grain via net_assets_ifrs_summary — see the grain-split comment
+        above SECURITIES_IDENTITIES. equity_ratio has no total-equity-ratio
+        counterpart element to match this grain, so
+        identity:equity_ratio~net_assets/total_assets can now legitimately
+        annotate on these rows (a real grain gap, not an extraction bug)."""
         for row in match_element_by_suffix(csv_files, 'TotalEquityIFRSSummaryOfBusinessResults'):
             if (row.get('コンテキストID', '') or '') == period:
                 v = coerce_numeric_value(row.get('値', ''))
@@ -507,7 +522,13 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         disclose only the combined total, no owners/NCI split. Matched by
         suffix for parity with the other USGAAP-summary helpers (mostly
         standard jpcrp_cor: namespace in practice, but a per-filer custom
-        namespace cannot be ruled out); bare (consolidated) context only."""
+        namespace cannot be ruled out); bare (consolidated) context only.
+
+        Same mixed-grain note as get_net_assets_ifrs_total_by_suffix above:
+        recovers net_assets at TOTAL-equity grain (incl. NCI), which can
+        legitimately trip identity:equity_ratio~net_assets/total_assets
+        against the owners-only equity_ratio element — see the grain-split
+        comment above SECURITIES_IDENTITIES."""
         for row in match_element_by_suffix(
             csv_files,
             'EquityIncludingPortionAttributableToNonControllingInterestUSGAAPSummaryOfBusinessResults',

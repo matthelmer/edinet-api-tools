@@ -161,3 +161,39 @@ def test_usgaap_net_assets_rejects_shareholders_equity_subcomponent():
     r = _parse('usgaap_net_assets_fixture_1')
     assert r.net_assets != 2_654_986_000_000
     assert r.net_assets == 3_448_513_000_000
+
+
+def test_recovered_total_equity_grain_trips_equity_ratio_identity():
+    # The recovered net_assets values are TOTAL equity (including
+    # non-controlling interest), while equity_ratio (net_assets_ifrs_summary's
+    # sibling ratio element) is owners-only-attributable. Where a filer's NCI
+    # slice is large enough, equity_ratio (owners-only / total_assets) and the
+    # now-populated net_assets/total_assets diverge past IDENTITY_TOLERANCE
+    # (0.02) — this is CORRECT: the identity check is supposed to fire on a
+    # real grain mismatch, not a bug in the fix. It never withholds (identities
+    # only ANNOTATE), so net_assets stays populated.
+    #
+    # ifrs_net_assets_fixture_2 (Ajinomoto, S100DDYF): net_assets/total_assets
+    # = 720,546,000,000 / 1,425,859,000,000 = 0.5054 vs stored equity_ratio
+    # 0.450 (owners-only) — a 0.0554 gap, past the 0.02 tolerance. Fires.
+    r2 = _parse('ifrs_net_assets_fixture_2')
+    assert r2.net_assets == 720_546_000_000  # recovered value stays present, not withheld
+    identity_flags = [
+        f for f in r2.extraction_flags
+        if f.rule == 'identity:equity_ratio~net_assets/total_assets'
+    ]
+    assert len(identity_flags) == 1
+    flag = identity_flags[0]
+    assert flag.field == 'equity_ratio'
+    assert flag.severity == 'annotated'
+
+    # ifrs_net_assets_fixture_1 (S100CUBT): net_assets/total_assets =
+    # 2,842,027,000,000 / 5,221,484,000,000 = 0.5443 vs stored equity_ratio
+    # 0.5289 — a 0.0154 gap, UNDER the 0.02 tolerance. Does not fire — pinning
+    # the other side so both outcomes of the same new fallback are covered.
+    r1 = _parse('ifrs_net_assets_fixture_1')
+    assert r1.net_assets == 2_842_027_000_000
+    assert not any(
+        f.rule == 'identity:equity_ratio~net_assets/total_assets'
+        for f in r1.extraction_flags
+    )
