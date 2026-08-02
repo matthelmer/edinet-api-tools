@@ -629,10 +629,11 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         # US-GAAP custom-namespace variant (e.g. Sony's per-filer-EDINET-code
         # namespace) — the fixed net_assets_per_share_usgaap id above never
         # matches these filers at all. Suffix-matched at the bare
-        # (consolidated) context only. patterns[0] is the bare period string
-        # regardless of is_consolidated (get_context_patterns always returns
-        # the bare period first).
-        nav_str = coerce_numeric_value(get_bps_usgaap_by_suffix(patterns[0]))
+        # (consolidated) context only — literal 'CurrentYearInstant', same
+        # idiom as get_revenue_by_suffix / get_operating_income_by_suffix
+        # (NOT patterns[0]: when is_consolidated is False, patterns[0] is
+        # the _NonConsolidatedMember-suffixed context, not the bare one).
+        nav_str = coerce_numeric_value(get_bps_usgaap_by_suffix('CurrentYearInstant'))
     net_assets_per_share = Decimal(nav_str) if nav_str else None
 
     patterns = get_context_patterns(is_consolidated, 'CurrentYearDuration')
