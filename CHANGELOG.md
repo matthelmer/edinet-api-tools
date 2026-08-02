@@ -11,6 +11,7 @@
   mismatches are annotated without altering any field. Raw values always
   remain in `raw_fields`.
 - Tender-offer registration filings annotate a sanity flag when the stated cover-page filing date exceeds the API submit date by more than 30 days; the stated date is never overwritten.
+- New IFRS debt fields (bonds_and_borrowings / borrowings, current and non-current); IFRS debt is no longer silently absent, and is never coerced onto the J-GAAP debt fields.
 
 ### Fixed
 

@@ -120,6 +120,16 @@ report.roe
 report.accounting_standard  # "Japan GAAP", "IFRS", or "US GAAP"
 report.segments             # list[SegmentRow] — per-segment metrics
 
+# Balance-sheet debt detail (J-GAAP): short_term_loans_payable,
+# long_term_loans_payable, bonds_payable, current_portion_long_term_loans_payable
+# IFRS reports combined bonds-and-borrowings or borrowings-only lines with no
+# clean mapping onto the J-GAAP fields above — two grains get two names, never
+# coerced onto each other:
+report.bonds_and_borrowings_current_ifrs     # 社債及び借入金, current
+report.bonds_and_borrowings_noncurrent_ifrs  # 社債及び借入金, non-current
+report.borrowings_current_ifrs               # 借入金, current
+report.borrowings_noncurrent_ifrs            # 借入金, non-current
+
 # Large Shareholding Report
 report.filer_name
 report.target_company

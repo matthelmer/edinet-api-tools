@@ -84,6 +84,19 @@ ELEMENT_MAP = {
     'lease_obligations_noncurrent': 'jppfs_cor:LeaseObligationsNCL',
     'commercial_paper': 'jppfs_cor:CommercialPaper',
 
+    # === IFRS balance-sheet debt (v0.8.0+) ===
+    # IFRS filers report combined bonds-and-borrowings OR separate
+    # borrowings-only lines -- neither maps cleanly onto the J-GAAP debt
+    # fields above, so these are NEW fields, never an IFRS_FALLBACK_MAP
+    # entry for them (that would coerce a different concept onto the
+    # J-GAAP fields). Census (corpjapan prod, 2026-08-01): the two pairs
+    # are mutually exclusive per filer -- a filer reports one pair or the
+    # other, never both, never 3+ of the 4 together.
+    'bonds_and_borrowings_current_ifrs': 'jpigp_cor:BondsAndBorrowingsCLIFRS',
+    'bonds_and_borrowings_noncurrent_ifrs': 'jpigp_cor:BondsAndBorrowingsNCLIFRS',
+    'borrowings_current_ifrs': 'jpigp_cor:BorrowingsCLIFRS',
+    'borrowings_noncurrent_ifrs': 'jpigp_cor:BorrowingsNCLIFRS',
+
     # === Cash Flow Statement Elements (J-GAAP FS fallback for companies without Summary section) ===
     # Note: the previous ids (jpcrp_cor:CashFlowsFrom{Operating,Investment,Financing}Activities)
     # did not exist in any real EDINET filing (0/15 prod scan). The real J-GAAP
@@ -294,6 +307,14 @@ class SecuritiesReport(ParsedReport):
     lease_obligations_current: int | None = None
     lease_obligations_noncurrent: int | None = None
     commercial_paper: int | None = None
+
+    # IFRS balance-sheet debt (v0.8.0+). IFRS filers report combined
+    # bonds-and-borrowings lines with no clean mapping onto the J-GAAP debt
+    # fields above — two grains get two names (never coerced onto each other).
+    bonds_and_borrowings_current_ifrs: int | None = None
+    bonds_and_borrowings_noncurrent_ifrs: int | None = None
+    borrowings_current_ifrs: int | None = None
+    borrowings_noncurrent_ifrs: int | None = None
 
     # Cash Flow
     operating_cash_flow: int | None = None
@@ -636,6 +657,16 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     lease_obligations_noncurrent = get_fin('lease_obligations_noncurrent', 'CurrentYearInstant')
     commercial_paper = get_fin('commercial_paper', 'CurrentYearInstant')
 
+    # IFRS balance-sheet debt (v0.8.0+). Observed at bare CurrentYearInstant
+    # context in both fixture styles (TDK combined-line; Murata separate-line)
+    # -- same context convention as the J-GAAP debt fields above, no variant
+    # handling needed. Not in IFRS_FALLBACK_MAP: these are new concepts, not
+    # fallbacks for the J-GAAP fields.
+    bonds_and_borrowings_current_ifrs = get_fin('bonds_and_borrowings_current_ifrs', 'CurrentYearInstant')
+    bonds_and_borrowings_noncurrent_ifrs = get_fin('bonds_and_borrowings_noncurrent_ifrs', 'CurrentYearInstant')
+    borrowings_current_ifrs = get_fin('borrowings_current_ifrs', 'CurrentYearInstant')
+    borrowings_noncurrent_ifrs = get_fin('borrowings_noncurrent_ifrs', 'CurrentYearInstant')
+
     # Cash flow - Multi-tier fallback:
     # 1. Japan GAAP Summary (jpcrp_cor)
     # 2. IFRS Summary (jpcrp_cor with IFRS suffix)
@@ -832,6 +863,10 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         lease_obligations_current=lease_obligations_current,
         lease_obligations_noncurrent=lease_obligations_noncurrent,
         commercial_paper=commercial_paper,
+        bonds_and_borrowings_current_ifrs=bonds_and_borrowings_current_ifrs,
+        bonds_and_borrowings_noncurrent_ifrs=bonds_and_borrowings_noncurrent_ifrs,
+        borrowings_current_ifrs=borrowings_current_ifrs,
+        borrowings_noncurrent_ifrs=borrowings_noncurrent_ifrs,
 
         # Cash Flow
         operating_cash_flow=operating_cf,
