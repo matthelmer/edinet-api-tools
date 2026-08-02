@@ -479,6 +479,45 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
                     return v
         return None
 
+    def get_net_assets_ifrs_total_by_suffix(period: str) -> int | None:
+        """Consolidated IFRS net assets INCLUDING non-controlling interest, for
+        filers whose 経営指標等 highlight table discloses only a single combined
+        equity line (no owners-of-parent / NCI split) — e.g.
+        jpcrp030000-asr_E00492-000:TotalEquityIFRSSummaryOfBusinessResults. The
+        fixed jpcrp_cor:EquityAttributableToOwnersOfParentIFRSSummaryOfBusinessResults
+        id (net_assets_ifrs_summary, tried first) is absent from these filings
+        entirely — this is a genuinely different, narrower concept (owners-of-parent
+        only) that these filers simply don't tag, not a naming variant of it.
+        TotalEquity is the correct IFRS analog of J-GAAP NetAssets (both include
+        NCI). Matched at the bare (consolidated) context only, so a parent
+        (non-consolidated) figure can never win."""
+        for row in match_element_by_suffix(csv_files, 'TotalEquityIFRSSummaryOfBusinessResults'):
+            if (row.get('コンテキストID', '') or '') == period:
+                v = coerce_numeric_value(row.get('値', ''))
+                if v:
+                    return parse_int(v)
+        return None
+
+    def get_net_assets_usgaap_total_by_suffix(period: str) -> int | None:
+        """Consolidated US-GAAP net assets INCLUDING non-controlling interest —
+        jpcrp_cor:EquityIncludingPortionAttributableToNonControllingInterest
+        USGAAPSummaryOfBusinessResults, labeled 純資産額（US GAAP）、経営指標等
+        ("net assets amount"). Falls back after net_assets_usgaap_summary
+        (EquityAttributableToOwnersOfParent..., owners-only) for filers that
+        disclose only the combined total, no owners/NCI split. Matched by
+        suffix for parity with the other USGAAP-summary helpers (mostly
+        standard jpcrp_cor: namespace in practice, but a per-filer custom
+        namespace cannot be ruled out); bare (consolidated) context only."""
+        for row in match_element_by_suffix(
+            csv_files,
+            'EquityIncludingPortionAttributableToNonControllingInterestUSGAAPSummaryOfBusinessResults',
+        ):
+            if (row.get('コンテキストID', '') or '') == period:
+                v = coerce_numeric_value(row.get('値', ''))
+                if v:
+                    return parse_int(v)
+        return None
+
     # Try summary elements first (J-GAAP then IFRS), then fall back to FS elements
     # FS elements have their own IFRS fallback via IFRS_FALLBACK_MAP in extract_financial()
     net_sales = _coalesce(
@@ -560,7 +599,9 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     net_assets = _coalesce(
         get_fin('net_assets_summary', 'CurrentYearInstant'),
         get_fin('net_assets_ifrs_summary', 'CurrentYearInstant'),
+        get_net_assets_ifrs_total_by_suffix('CurrentYearInstant'),
         get_fin('net_assets_usgaap_summary', 'CurrentYearInstant'),
+        get_net_assets_usgaap_total_by_suffix('CurrentYearInstant'),
         get_fin('net_assets_fs', 'CurrentYearInstant'),
     )
     total_liabilities = get_fin('total_liabilities_fs', 'CurrentYearInstant')
