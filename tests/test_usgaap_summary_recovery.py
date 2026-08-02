@@ -101,13 +101,17 @@ def test_usgaap_net_assets_absent_in_fixture_is_honest_none():
     assert r.net_assets is None
 
 
-def test_usgaap_net_assets_per_share_absent_in_fixture_is_honest_none():
+def test_usgaap_net_assets_per_share_from_custom_namespace_variant():
     """EquityAttributableToOwnersOfParentPerShareUSGAAPSummaryOfBusinessResults is
-    absent from the Sony fixture (only a company-custom-ns variant exists, which
-    the parser does not pick up). Field must remain None.
+    absent from the Sony fixture; only a company-custom-namespace variant
+    (jpcrp030000-asr_E01777-000:StockholdersEquityPerShareOfCommonStock
+    USGAAPSummaryOfBusinessResults) exists. As of the per-share fix
+    (tests/test_per_share_mapping.py), a suffix-matched tier picks this up.
+    IR-verified from the primary EDINET filing PDF (Sony Group FY2020/3,
+    主要な経営指標等の推移 table, 2019年度 column): 1株当たり純資産額 = 3,380.96円.
     """
     r = _parse('sony_fy20_usgaap_revenue')
-    assert r.net_assets_per_share is None
+    assert r.net_assets_per_share == Decimal('3380.96')
 
 
 def test_usgaap_operating_cf_absent_in_fixture_is_honest_none():

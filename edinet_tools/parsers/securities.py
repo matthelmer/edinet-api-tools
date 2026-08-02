@@ -461,6 +461,24 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
                         return parse_int(v)
         return None
 
+    def get_bps_usgaap_by_suffix(period: str) -> str | None:
+        """Consolidated US-GAAP net-assets-per-share for custom-namespace
+        filers (e.g. Sony's jpcrp030000-asr_E01777-000:
+        StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults)
+        — the fixed jpcrp_cor:EquityAttributableToOwnersOfParentPerShare
+        USGAAPSummaryOfBusinessResults id is absent from these filings
+        entirely; matched at the bare (consolidated) context only, so a
+        parent figure can never win. Returns the raw value string (caller
+        coerces/Decimals it), matching get_fin's contract."""
+        for row in match_element_by_suffix(
+            csv_files, 'StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults'
+        ):
+            if (row.get('コンテキストID', '') or '') == period:
+                v = coerce_numeric_value(row.get('値', ''))
+                if v:
+                    return v
+        return None
+
     # Try summary elements first (J-GAAP then IFRS), then fall back to FS elements
     # FS elements have their own IFRS fallback via IFRS_FALLBACK_MAP in extract_financial()
     net_sales = _coalesce(
@@ -595,9 +613,26 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         csv_files, ELEMENT_MAP['net_assets_per_share'], context_patterns=patterns
     ))
     if not nav_str:
+        # IFRS tier: bps_ifrs's element name is a taxonomy misnomer
+        # ("EquityToAssetRatio") but its label is 1株当たり親会社所有者帰属持分
+        # (equity attributable to owners of parent PER SHARE, in JPY) — the
+        # same concept as net_assets_per_share for IFRS filers. Already fed
+        # ifrs_summary_bps (v0.7.2+); wiring it here too keeps both in sync.
+        nav_str = coerce_numeric_value(extract_value(
+            csv_files, ELEMENT_MAP['bps_ifrs'], context_patterns=patterns
+        ))
+    if not nav_str:
         nav_str = coerce_numeric_value(extract_value(
             csv_files, ELEMENT_MAP['net_assets_per_share_usgaap'], context_patterns=patterns
         ))
+    if not nav_str:
+        # US-GAAP custom-namespace variant (e.g. Sony's per-filer-EDINET-code
+        # namespace) — the fixed net_assets_per_share_usgaap id above never
+        # matches these filers at all. Suffix-matched at the bare
+        # (consolidated) context only. patterns[0] is the bare period string
+        # regardless of is_consolidated (get_context_patterns always returns
+        # the bare period first).
+        nav_str = coerce_numeric_value(get_bps_usgaap_by_suffix(patterns[0]))
     net_assets_per_share = Decimal(nav_str) if nav_str else None
 
     patterns = get_context_patterns(is_consolidated, 'CurrentYearDuration')
