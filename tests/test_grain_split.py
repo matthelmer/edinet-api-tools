@@ -15,8 +15,6 @@ tombstoned: reading them raises AttributeError with a message naming the
 replacement field(s); constructing with them as kwargs raises TypeError
 (a dataclass gives this for free).
 """
-from decimal import Decimal
-
 import pytest
 
 from edinet_tools.parsers.securities import SecuritiesReport, parse_securities_report
@@ -167,6 +165,72 @@ class TestIFRSRouting:
         r = _parse(rows)
         assert r.net_assets_owners == 333
 
+    def test_net_income_owners_recovers_from_new_ifrs_fs_level_mapping(self):
+        # HOYA-shape filing: the *_ifrs_summary profit element is absent but
+        # the FS-level jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS
+        # is tagged (census: 89.1% of IFRS rows carry it; HOYA's own filing
+        # is exactly this shape -- summary equity tagged, summary profit not
+        # -- and is Task 3's counterexample fixture). net_income_owners must
+        # recover it; net_income_total must NOT leak from this owners-only
+        # element (no total-basis element present at all here).
+        rows = _dei('IFRS') + [
+            _row('jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS',
+                 'CurrentYearDuration', '253085'),
+        ]
+        r = _parse(rows)
+        assert r.net_income_owners == 253085
+        assert r.net_income_total is None
+
+    def test_prior_net_income_owners_recovers_from_new_ifrs_fs_level_mapping(self):
+        # Same recovery tier, Prior1YearDuration context.
+        rows = _dei('IFRS') + [
+            _row('jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS',
+                 'Prior1YearDuration', '200000'),
+        ]
+        r = _parse(rows)
+        assert r.prior_net_income_owners == 200000
+        assert r.prior_net_income_total is None
+
+    def test_ifrs_summary_tier_wins_over_new_fs_level_when_both_present(self):
+        # Waterfall order pin, mirroring the J-GAAP one above: the existing
+        # *_ifrs_summary tier still wins over the new FS-level mapping.
+        rows = self._rows()  # already carries the summary element (60)
+        rows = rows + [
+            _row('jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS',
+                 'CurrentYearDuration', '999'),
+        ]
+        r = _parse(rows)
+        assert r.net_income_owners == 60
+
+
+# =====================================================================
+# Parent-value (_NonConsolidatedMember) exclusion -- component fields +
+# net_income_total (census headline trap: ShareholdersEquity appears in
+# 100% of IFRS/US-GAAP filings but ONLY at NonConsolidatedMember contexts)
+# =====================================================================
+
+class TestParentContextExclusion:
+    def test_ifrs_filer_excludes_nonconsolidated_only_components_and_total_income(self):
+        # A consolidated IFRS filer (is_consolidated=True) only accepts the
+        # bare (consolidated) context for these fields -- values tagged
+        # exclusively at _NonConsolidatedMember must NOT leak through.
+        rows = _dei('IFRS') + [
+            _row('jppfs_cor:ShareholdersEquity',
+                 'CurrentYearInstant_NonConsolidatedMember', '111'),
+            _row('jppfs_cor:ValuationAndTranslationAdjustments',
+                 'CurrentYearInstant_NonConsolidatedMember', '22'),
+            _row('jppfs_cor:NonControllingInterests',
+                 'CurrentYearInstant_NonConsolidatedMember', '33'),
+            _row('jppfs_cor:ProfitLoss',
+                 'CurrentYearDuration_NonConsolidatedMember', '444'),
+        ]
+        r = _parse(rows)
+        assert r.accounting_standard == 'IFRS'
+        assert r.shareholders_equity is None
+        assert r.valuation_translation_adjustments is None
+        assert r.non_controlling_interests is None
+        assert r.net_income_total is None
+
 
 # =====================================================================
 # US-GAAP routing
@@ -203,6 +267,81 @@ class TestUSGAAPRouting:
         # owners-basis value.
         r = _parse(self._rows())
         assert r.net_income_total is None
+
+
+# =====================================================================
+# No cross-basis coalescing, all six directions (net_assets owners/total,
+# net_income owners/total, prior_net_income owners/total). Each test's
+# row-set carries ONLY a wrong-basis element for the field under test --
+# if any waterfall ever coalesced across basis, these would flip from None
+# to the wrong-basis value. See the fix report for the mutation re-run that
+# confirms each of these actually fails when the corresponding leak is
+# introduced.
+# =====================================================================
+
+class TestNoCrossBasisLeaks:
+    def test_net_income_owners_does_not_leak_from_total_only_element(self):
+        # Only the total-basis jppfs_cor:ProfitLoss is present -- no
+        # owners-basis element (summary, FS-level, IFRS, or US-GAAP) at all.
+        rows = _dei('Japan GAAP') + [
+            _row('jppfs_cor:ProfitLoss', 'CurrentYearDuration', '95'),
+        ]
+        r = _parse(rows)
+        assert r.net_income_owners is None
+        assert r.net_income_total == 95
+
+    def test_net_income_total_does_not_leak_from_owners_only_element(self):
+        # Only an owners-basis element is present -- no total-basis
+        # jppfs_cor:ProfitLoss (or its IFRS fallback) anywhere.
+        rows = _dei('Japan GAAP') + [
+            _row('jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults',
+                 'CurrentYearDuration', '80'),
+        ]
+        r = _parse(rows)
+        assert r.net_income_owners == 80
+        assert r.net_income_total is None
+
+    def test_prior_net_income_owners_does_not_leak_from_total_only_element(self):
+        # Prior-year mirror: only jppfs_cor:ProfitLoss @ Prior1YearDuration.
+        rows = _dei('Japan GAAP') + [
+            _row('jppfs_cor:ProfitLoss', 'Prior1YearDuration', '85'),
+        ]
+        r = _parse(rows)
+        assert r.prior_net_income_owners is None
+        assert r.prior_net_income_total == 85
+
+    def test_prior_net_income_total_does_not_leak_from_owners_only_element(self):
+        rows = _dei('Japan GAAP') + [
+            _row('jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults',
+                 'Prior1YearDuration', '70'),
+        ]
+        r = _parse(rows)
+        assert r.prior_net_income_owners == 70
+        assert r.prior_net_income_total is None
+
+    def test_net_assets_total_does_not_leak_from_owners_only_ifrs_fs_element(self):
+        # Only the NEW FS-level owners element (net_assets_owners_ifrs_fs) is
+        # present -- no total-basis element (summary, FS jppfs:NetAssets/
+        # jpigp_cor:EquityIFRS, or either suffix-matched total-equity
+        # fallback) anywhere.
+        rows = _dei('IFRS') + [
+            _row('jpigp_cor:EquityAttributableToOwnersOfParentIFRS',
+                 'CurrentYearInstant', '333'),
+        ]
+        r = _parse(rows)
+        assert r.net_assets_owners == 333
+        assert r.net_assets_total is None
+
+    def test_net_assets_owners_does_not_leak_from_total_only_usgaap_suffix_element(self):
+        # Only the suffix-matched total-equity-including-NCI element is
+        # present -- no owners-basis US-GAAP summary element anywhere.
+        rows = _dei('US GAAP') + [
+            _row('jpcrp_cor:EquityIncludingPortionAttributableToNonControllingInterestUSGAAPSummaryOfBusinessResults',
+                 'CurrentYearInstant', '450'),
+        ]
+        r = _parse(rows)
+        assert r.net_assets_owners is None
+        assert r.net_assets_total == 450
 
 
 # =====================================================================

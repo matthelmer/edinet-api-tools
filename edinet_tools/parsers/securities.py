@@ -86,6 +86,12 @@ ELEMENT_MAP = {
     # (see parse_securities_report()'s routing comments) and did not move.
     'net_income_owners_fs': 'jppfs_cor:ProfitLossAttributableToOwnersOfParent',
     'net_assets_owners_ifrs_fs': 'jpigp_cor:EquityAttributableToOwnersOfParentIFRS',
+    # FS-level IFRS owners profit -- mirrors net_assets_owners_ifrs_fs's
+    # equity sibling. Census: present in 89.1% of IFRS securities_reports
+    # rows (項目名 親会社の所有者、当期利益). Some filers (e.g. HOYA) tag this
+    # FS-level element but not the *_ifrs_summary one, so it is a real,
+    # non-redundant recovery tier, not a confirmation-only fallback.
+    'net_income_owners_ifrs_fs': 'jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS',
     # Balance-sheet equity components (J-GAAP FS-level). Facts in their own
     # right -- never summed to derive net_assets_owners (J-GAAP has no
     # owners-only net-assets concept; components stay components).
@@ -684,14 +690,16 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     )
     # net_income split by ownership basis (v0.8.0+). Owners-basis sources
     # (J-GAAP summary + NEW FS-level jppfs:ProfitLossAttributableToOwnersOfParent,
-    # IFRS summary, US-GAAP summary) fill ONLY net_income_owners; the single
-    # total-basis source (jppfs:ProfitLoss, with its existing IFRS_FALLBACK_MAP
-    # fallback to jpigp_cor:ProfitLossIFRS) fills ONLY net_income_total. No
+    # IFRS summary + NEW FS-level jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS,
+    # US-GAAP summary) fill ONLY net_income_owners; the single total-basis
+    # source (jppfs:ProfitLoss, with its existing IFRS_FALLBACK_MAP fallback
+    # to jpigp_cor:ProfitLossIFRS) fills ONLY net_income_total. No
     # cross-basis coalescing -- net_income_total stays honest-None for
     # US-GAAP (no total-basis element exists in that taxonomy).
     net_income_owners = _coalesce(
         get_fin('net_income_summary', 'CurrentYearDuration'),
         get_fin('net_income_ifrs_summary', 'CurrentYearDuration'),
+        get_fin('net_income_owners_ifrs_fs', 'CurrentYearDuration'),
         get_fin('net_income_usgaap_summary', 'CurrentYearDuration'),
         get_fin('net_income_owners_fs', 'CurrentYearDuration'),
     )
@@ -726,6 +734,7 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
     prior_net_income_owners = _coalesce(
         get_fin('net_income_summary', 'Prior1YearDuration'),
         get_fin('net_income_ifrs_summary', 'Prior1YearDuration'),
+        get_fin('net_income_owners_ifrs_fs', 'Prior1YearDuration'),
         get_fin('net_income_usgaap_summary', 'Prior1YearDuration'),
         get_fin('net_income_owners_fs', 'Prior1YearDuration'),
     )
