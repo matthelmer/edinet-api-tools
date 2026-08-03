@@ -71,7 +71,7 @@ def test_ifrs_summary_bps_still_reads_per_share_element():
 
 # --- net_assets: IFRS/US-GAAP total-equity fallback (0.8.0, C14 gate) ---
 #
-# Census (corpjapan prod, 2026-08-01): 9 IFRS + 23 US-GAAP securities_reports
+# Corpus survey of real filings (2026-08-01): 9 IFRS + 23 US-GAAP securities_reports
 # rows had net_assets NULL despite the existing net_assets_ifrs_summary /
 # net_assets_usgaap_summary tiers (EquityAttributableToOwnersOfParent...,
 # owners-of-parent only). These filers' 経営指標等 highlight table discloses
@@ -99,7 +99,7 @@ def test_ifrs_summary_bps_still_reads_per_share_element():
 #     per-share BPS, wrong grain entirely (already used for net_assets_per_share).
 
 def test_ifrs_net_assets_recovers_total_equity_by_suffix():
-    # S100CUBT (IFRS, net_assets NULL in prod): TotalEquityIFRSSummaryOfBusinessResults
+    # S100CUBT (IFRS, net_assets absent from the typed summary): TotalEquityIFRSSummaryOfBusinessResults
     # CurrentYearInstant = 2,842,027,000,000 under the custom
     # jpcrp030000-asr_E00492-000: namespace. The primary tier
     # (EquityAttributableToOwnersOfParentIFRS...) is entirely absent from this
@@ -110,7 +110,7 @@ def test_ifrs_net_assets_recovers_total_equity_by_suffix():
 
 
 def test_ifrs_net_assets_second_fixture():
-    # S100DDYF (IFRS, net_assets NULL in prod): TotalEquityIFRSSummaryOfBusinessResults
+    # S100DDYF (IFRS, net_assets absent from the typed summary): TotalEquityIFRSSummaryOfBusinessResults
     # CurrentYearInstant = 720,546,000,000 (jpcrp030000-asr_E00436-000: namespace).
     r = _parse('ifrs_net_assets_fixture_2')
     assert r.accounting_standard == 'IFRS'
@@ -141,7 +141,7 @@ def test_ifrs_total_liabilities_stays_honest_none_despite_present_element():
 
 
 def test_usgaap_net_assets_recovers_total_equity_by_suffix():
-    # S100TTEY (US GAAP, net_assets NULL in prod):
+    # S100TTEY (US GAAP, net_assets absent from the typed summary):
     # EquityIncludingPortionAttributableToNonControllingInterestUSGAAP
     # SummaryOfBusinessResults, label 純資産額（US GAAP）、経営指標等
     # ("net assets amount"), CurrentYearInstant = 3,448,513,000,000.

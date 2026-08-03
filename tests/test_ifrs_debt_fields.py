@@ -6,22 +6,23 @@ that have NO clean 1:1 mapping onto the J-GAAP debt fields
 current_portion_long_term_loans_payable). Two grains get two names: they
 become new `*_ifrs` fields, never coerced onto the J-GAAP fields above.
 
-Census (corpjapan prod, 2026-08-01, Task 1 gate): 2,331 IFRS securities_reports
+Corpus survey of real filings (2026-08-01): 2,331 IFRS securities_reports
 rows. Element frequency: BondsAndBorrowingsCLIFRS 842, BondsAndBorrowingsNCLIFRS
 888, BorrowingsCLIFRS 683, BorrowingsNCLIFRS 553. All four appear at real
 frequency -> all four ship.
 
-Co-occurrence check (this task, re-run against the same census): the two pairs
+Co-occurrence check (re-run against the same corpus): the two pairs
 are MUTUALLY EXCLUSIVE per filer -- a filer reports EITHER the combined
 "社債及び借入金" (bonds-and-borrowings) line OR the separate "借入金"
 (borrowings-only) line, never both:
   (BondsAndBorrowingsCLIFRS & NCLIFRS, no Borrowings*): 810 rows
   (BorrowingsCLIFRS & NCLIFRS, no BondsAndBorrowings*):   505 rows
   no row has 3+ of the 4 elements together.
-The task brief's "fixtures with >=3 of 4 elements" selection criterion could
-not be met by any real prod row; two fixtures (one per pair) were built
-instead, jointly covering all four elements. See task-6-report.md for the
-full adjudication.
+A selection criterion of "fixtures with >=3 of 4 elements" could not be met
+by any real filing; two fixtures (one per pair) were built instead, jointly
+covering all four elements. The co-occurrence counts above are the full
+adjudication: every element pairing in the corpus fell into exactly one of
+the two mutually-exclusive buckets, with no cross-pair or 3+-element rows.
 
 Fixture selection (real EDINET filings, FY ended 2026-03-31):
   ifrs_debt_a = TDK Corporation (6762.T, S100YD2Y)      -- combined-line style
@@ -31,8 +32,10 @@ IR verification: both fixtures carry the filing's own
 NotesBondsAndBorrowingsConsolidatedFinancialStatementsIFRSTextBlock note,
 whose itemized yen breakdown reconciles EXACTLY to the structured XBRL tag
 value pinned below (two independent representations inside the same primary
-filing). See task-6-report.md for the full reconciliation and the (unreliable)
-external secondary-source cross-check attempt.
+filing) -- see the per-test comments for the yen-level reconciliation. An
+external secondary-source cross-check was also attempted for both fixtures
+and abandoned as unreliable (aggregator figures did not reconcile to yen);
+the in-filing note-to-XBRL reconciliation above is the authoritative check.
 """
 import csv as _csv
 from pathlib import Path

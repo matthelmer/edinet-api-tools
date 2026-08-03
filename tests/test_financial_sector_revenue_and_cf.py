@@ -84,7 +84,7 @@ def test_bank_net_sales_from_ordinary_income_summary():
 # csv_files (no CF-summary rows, no IFRS rows) to prove the corrected jppfs CF
 # element ids fire when they are the only source present.
 #
-# Real J-GAAP CF element ids verified against prod scan (15/15 operating, 8/8
+# Real J-GAAP CF element ids verified against a corpus scan (15/15 operating, 8/8
 # investing, 15/15 financing — note "Investment" not "Investing" for the middle
 # element, matching the XBRL taxonomy spelling):
 #   jppfs_cor:NetCashProvidedByUsedInOperatingActivities

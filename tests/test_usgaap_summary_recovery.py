@@ -22,7 +22,7 @@ Pinned exact values from Sony fixture for present elements:
 
 All other fields remain None for the Sony fixture (elements not present), but the
 waterfall extension is verified to work correctly once elements exist — confirmed via
-the prod scan of 10 real US-GAAP filings.
+a corpus scan of 10 real US-GAAP filings.
 
 Canon FY24 fixture element-presence audit (filing S100XTLJ, 2026-06-10):
   Element                                                             Present?  Context / Value
@@ -83,7 +83,7 @@ def test_usgaap_total_assets_absent_in_fixture_is_honest_none():
     """TotalAssetsUSGAAPSummaryOfBusinessResults is missing from the Sony fixture.
     Verifies no regression: field stays None (not a stale J-GAAP parent value).
     Real US-GAAP filers that DO have this element will be covered by the waterfall
-    extension once those fixtures / prod data are exercised.
+    extension once those fixtures / real filing data are exercised.
     """
     r = _parse('sony_fy20_usgaap_revenue')
     # The J-GAAP summary and IFRS summary elements are also absent in the Sony

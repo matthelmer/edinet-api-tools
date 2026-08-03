@@ -469,8 +469,8 @@ class TestLargeHoldingExtraction:
         holding) carry per-co-reporter axis members in context_ids:
         `..._FilerLargeVolumeHolder1Member`, `2Member`, `3Member`, etc.
         Detection: presence of any Holder<N>Member where N >= 2 = joint filing.
-        Captured from real prod LHR rows id=100 (Mizuho Bank, 3 holders) and
-        id=50000 (SMBC Nikko, 3 holders).
+        Captured from real filings: Mizuho Bank (3 holders) and
+        SMBC Nikko (3 holders).
         """
         rows = self._base_rows() + [
             make_csv_row(

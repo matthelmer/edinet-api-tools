@@ -89,8 +89,8 @@ ELEMENT_MAP = {
     # borrowings-only lines -- neither maps cleanly onto the J-GAAP debt
     # fields above, so these are NEW fields, never an IFRS_FALLBACK_MAP
     # entry for them (that would coerce a different concept onto the
-    # J-GAAP fields). Census (corpjapan prod, 2026-08-01): the two pairs
-    # are mutually exclusive per filer -- a filer reports one pair or the
+    # J-GAAP fields). Corpus survey of real filings (2026-08-01): the two
+    # pairs are mutually exclusive per filer -- a filer reports one pair or the
     # other, never both, never 3+ of the 4 together.
     'bonds_and_borrowings_current_ifrs': 'jpigp_cor:BondsAndBorrowingsCLIFRS',
     'bonds_and_borrowings_noncurrent_ifrs': 'jpigp_cor:BondsAndBorrowingsNCLIFRS',
@@ -99,7 +99,7 @@ ELEMENT_MAP = {
 
     # === Cash Flow Statement Elements (J-GAAP FS fallback for companies without Summary section) ===
     # Note: the previous ids (jpcrp_cor:CashFlowsFrom{Operating,Investment,Financing}Activities)
-    # did not exist in any real EDINET filing (0/15 prod scan). The real J-GAAP
+    # did not exist in any real EDINET filing (0/15 sampled filings). The real J-GAAP
     # financial-statement CF element ids are in the jppfs_cor namespace.
     # Note spelling: "Investment" (not "Investing") in the middle element — matches the XBRL taxonomy.
     'operating_cf_cfs': 'jppfs_cor:NetCashProvidedByUsedInOperatingActivities',
