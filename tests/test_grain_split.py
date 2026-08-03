@@ -383,6 +383,31 @@ class TestOwnershipBasisEquityRatioIdentity:
         assert len(flags) == 1
         assert 'net_assets_owners=500' in flags[0].value
 
+    def test_usgaap_equity_ratio_identity_compares_against_net_assets_owners(self):
+        # Mirrors test_ifrs_equity_ratio_identity_compares_against_net_assets_owners
+        # for the other standard sharing the owners-basis scope
+        # (standards=('IFRS', 'US GAAP')) -- nothing previously pinned that
+        # 'US GAAP' is actually in scope for this identity; this proves it.
+        # equity_ratio_usgaap (owners-only) vs net_assets_owners: 500/1000 =
+        # 0.50 computed, 0.30 stated -> 0.20 gap, past IDENTITY_TOLERANCE
+        # (0.02) -> annotate. The rule NAME is the load-bearing assertion:
+        # it must read 'net_assets_owners', proving the operand actually
+        # switched off net_assets_total for US-GAAP too.
+        rows = _dei('US GAAP') + [
+            _row('jpcrp_cor:EquityToAssetRatioUSGAAPSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jpcrp_cor:EquityAttributableToOwnersOfParentUSGAAPSummaryOfBusinessResults',
+                 'CurrentYearInstant', '500'),
+            _row('jpcrp_cor:TotalAssetsUSGAAPSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        assert r.net_assets_owners == 500
+        flags = [f for f in r.extraction_flags
+                 if f.rule == 'identity:equity_ratio~net_assets_owners/total_assets']
+        assert len(flags) == 1
+        assert 'net_assets_owners=500' in flags[0].value
+
     def test_ifrs_equity_ratio_identity_within_tolerance_no_flag(self):
         # 500/1000 = 0.50 computed, 0.50 stated -> exact match, no flag.
         rows = _dei('IFRS') + [

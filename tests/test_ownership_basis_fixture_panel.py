@@ -95,6 +95,7 @@ class TestItochuIFRS:
         assert r.net_assets_total == 7_188_259_000_000      # "Total equity"
         assert r.total_assets == 16_732_815_000_000
         assert r.non_controlling_interests == 598_293_000_000
+        assert r.equity_ratio == Decimal('0.3938')          # 親会社所有者帰属持分比率（IFRS）39.38%
 
     def test_zero_flags(self):
         _assert_no_flags(_parse('itochu_ifrs'), 'itochu_ifrs')
@@ -165,6 +166,7 @@ class TestKansaiPaintJGAAP:
         assert r.non_controlling_interests == 81_145_000_000          # 非支配株主持分
         assert r.net_assets_total == 381_203_000_000                  # 純資産合計
         assert r.total_assets == 801_693_000_000                      # 資産合計
+        assert r.equity_ratio == Decimal('0.374')                     # 自己資本比率 37.4%
         assert r.net_assets_owners is None  # J-GAAP: always None, never derived from the components
 
     def test_net_income_split_and_prior_year(self):
@@ -227,6 +229,7 @@ class TestHoriiFoodServiceJGAAP:
         assert r.non_controlling_interests == 42_884_000          # 非支配株主持分
         assert r.net_assets_total == 517_395_000                  # 純資産合計
         assert r.total_assets == 3_018_702_000                    # 資産合計
+        assert r.equity_ratio == Decimal('0.157')                 # 自己資本比率 15.7%
 
     def test_net_income_split_first_consolidated_year_no_prior(self):
         r = _parse('horiifood_jgaap')
