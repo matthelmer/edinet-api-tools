@@ -95,10 +95,11 @@ def test_usgaap_total_assets_absent_in_fixture_is_honest_none():
 
 def test_usgaap_net_assets_absent_in_fixture_is_honest_none():
     """EquityAttributableToOwnersOfParentUSGAAPSummaryOfBusinessResults is missing
-    from the Sony fixture. Field must remain None (not the non-consolidated value).
+    from the Sony fixture. net_assets_owners must remain None (not the
+    non-consolidated value).
     """
     r = _parse('sony_fy20_usgaap_revenue')
-    assert r.net_assets is None
+    assert r.net_assets_owners is None
 
 
 def test_usgaap_net_assets_per_share_from_custom_namespace_variant():
@@ -158,10 +159,10 @@ def test_canon_usgaap_total_assets():
 
 def test_canon_usgaap_net_assets():
     """EquityAttributableToOwnersOfParentUSGAAPSummaryOfBusinessResults @ CurrentYearInstant:
-    3,491,808,000,000 JPY.
+    3,491,808,000,000 JPY -- owners-of-parent basis.
     """
     r = _parse('canon_fy_usgaap')
-    assert r.net_assets == 3_491_808_000_000
+    assert r.net_assets_owners == 3_491_808_000_000
 
 
 def test_canon_usgaap_equity_ratio():
@@ -219,11 +220,11 @@ def test_canon_usgaap_net_sales():
 
 def test_canon_usgaap_net_income_absent_is_honest_none():
     """NetIncomeLossAttributableToOwnersOfParentUSGAAPSummaryOfBusinessResults is not
-    tagged in the Canon filing. net_income must be None — no fallback to non-consolidated
-    jppfs_cor:ProfitLoss or ProfitLossBeforeTax.
+    tagged in the Canon filing. net_income_owners must be None — no fallback to
+    non-consolidated jppfs_cor:ProfitLoss or ProfitLossBeforeTax.
     """
     r = _parse('canon_fy_usgaap')
-    assert r.net_income is None
+    assert r.net_income_owners is None
 
 
 def test_canon_usgaap_operating_income_absent_is_honest_none():

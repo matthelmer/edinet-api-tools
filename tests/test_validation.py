@@ -92,9 +92,11 @@ def equity_ratio_reconciles(er, na, ta):
     return abs(er - na / ta) <= IDENTITY_TOLERANCE
 
 
+# Operand is 'net_assets_total' (not 'net_assets' — split by ownership basis
+# in 0.8.0; see SecuritiesReport.__getattr__ for the removed-field tombstone).
 EQUITY_IDENTITY = Identity(
     name='identity:equity_ratio~net_assets/total_assets',
-    operands=('equity_ratio', 'net_assets', 'total_assets'),
+    operands=('equity_ratio', 'net_assets_total', 'total_assets'),
     check=equity_ratio_reconciles,
 )
 
@@ -102,31 +104,31 @@ EQUITY_IDENTITY = Identity(
 class TestIdentitiesAnnotate:
     def test_violation_annotates_and_keeps_all_values(self):
         # 0.30 stated vs 0.60 computed: annotate, never empty — an identity
-        # cannot localize the culprit (spec: the J-GAAP grain case is a
-        # correct filed ratio disagreeing with a differently-grained operand)
+        # cannot localize the culprit (spec: the J-GAAP ownership-basis case
+        # is a correct filed ratio disagreeing with a differently-based operand)
         report = make_report(equity_ratio=Decimal('0.30'),
-                             net_assets=600, total_assets=1000)
+                             net_assets_total=600, total_assets=1000)
         flags = apply_identities(report, [EQUITY_IDENTITY])
         assert len(flags) == 1
         assert flags[0].severity == 'annotated'
         assert flags[0].rule == 'identity:equity_ratio~net_assets/total_assets'
         assert report.equity_ratio == Decimal('0.30')  # KEPT
-        assert report.net_assets == 600                 # KEPT
+        assert report.net_assets_total == 600            # KEPT
         assert 'equity_ratio=0.30' in flags[0].value
 
     def test_within_tolerance_no_flag(self):
         report = make_report(equity_ratio=Decimal('0.601'),
-                             net_assets=600, total_assets=1000)
+                             net_assets_total=600, total_assets=1000)
         assert apply_identities(report, [EQUITY_IDENTITY]) == []
 
     def test_missing_operand_skips(self):
         report = make_report(equity_ratio=Decimal('0.30'),
-                             net_assets=None, total_assets=1000)
+                             net_assets_total=None, total_assets=1000)
         assert apply_identities(report, [EQUITY_IDENTITY]) == []
 
     def test_check_returning_none_skips(self):
         report = make_report(equity_ratio=Decimal('0.30'),
-                             net_assets=600, total_assets=0)
+                             net_assets_total=600, total_assets=0)
         assert apply_identities(report, [EQUITY_IDENTITY]) == []
 
     def test_standards_scope_respected(self):
@@ -134,7 +136,7 @@ class TestIdentitiesAnnotate:
                           operands=EQUITY_IDENTITY.operands,
                           check=EQUITY_IDENTITY.check, standards=('IFRS',))
         report = make_report(equity_ratio=Decimal('0.30'),
-                             net_assets=600, total_assets=1000)  # J-GAAP
+                             net_assets_total=600, total_assets=1000)  # J-GAAP
         assert apply_identities(report, [scoped]) == []
 
 
@@ -160,7 +162,7 @@ class TestExtractionFlagsOnBaseType:
 class TestApplyValidation:
     def test_extends_report_flags_with_both_kinds(self):
         report = make_report(equity_ratio=Decimal('27056.2'),
-                             net_assets=600, total_assets=1000,
+                             net_assets_total=600, total_assets=1000,
                              total_liabilities=-5)
         bounds = BOUNDS + [Bound(field='total_liabilities', min_value=0)]
         apply_validation(report, bounds, [EQUITY_IDENTITY])

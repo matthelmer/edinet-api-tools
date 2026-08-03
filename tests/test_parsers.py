@@ -182,7 +182,7 @@ class TestSecuritiesReport:
             fiscal_year_end=date(2025, 3, 31),
             net_sales=45000000000000,
             operating_income=3000000000000,
-            net_income=2500000000000,
+            net_income_owners=2500000000000,
         )
         assert report.filer_name == 'トヨタ自動車株式会社'
         assert report.net_sales == 45000000000000

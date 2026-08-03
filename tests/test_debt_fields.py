@@ -236,7 +236,7 @@ class TestDebtFieldExtraction:
             short_term_loans_payable=1_000_000_000,
             long_term_loans_payable=5_000_000_000,
             bonds_payable=2_000_000_000,
-            net_assets=10_000_000_000,
+            net_assets_total=10_000_000_000,
         )
 
         total_debt = sum(filter(None, [
@@ -245,7 +245,7 @@ class TestDebtFieldExtraction:
             report.bonds_payable,
         ]))
 
-        de_ratio = (total_debt / report.net_assets) * 100 if report.net_assets else None
+        de_ratio = (total_debt / report.net_assets_total) * 100 if report.net_assets_total else None
 
         assert de_ratio is not None
         assert de_ratio == 80.0  # 8B debt / 10B equity = 80%

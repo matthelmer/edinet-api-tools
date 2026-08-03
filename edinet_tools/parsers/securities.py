@@ -75,6 +75,24 @@ ELEMENT_MAP = {
     'net_assets_fs': 'jppfs_cor:NetAssets',
     'total_liabilities_fs': 'jppfs_cor:Liabilities',
 
+    # === Ownership-basis split (v0.8.0+) ===
+    # net_assets/net_income were split into *_owners (attributable to owners
+    # of parent) and *_total (includes non-controlling interests) fields --
+    # see SecuritiesReport for the field docs and __getattr__ for the
+    # removed-name tombstone. These four entries are the NEW routing tiers
+    # this split needed; the pre-existing net_assets_fs / net_income_fs /
+    # net_assets_ifrs_summary / net_income_ifrs_summary / *_usgaap_summary
+    # keys above already carry an unambiguous single ownership basis each
+    # (see parse_securities_report()'s routing comments) and did not move.
+    'net_income_owners_fs': 'jppfs_cor:ProfitLossAttributableToOwnersOfParent',
+    'net_assets_owners_ifrs_fs': 'jpigp_cor:EquityAttributableToOwnersOfParentIFRS',
+    # Balance-sheet equity components (J-GAAP FS-level). Facts in their own
+    # right -- never summed to derive net_assets_owners (J-GAAP has no
+    # owners-only net-assets concept; components stay components).
+    'shareholders_equity': 'jppfs_cor:ShareholdersEquity',
+    'valuation_translation_adjustments': 'jppfs_cor:ValuationAndTranslationAdjustments',
+    'non_controlling_interests': 'jppfs_cor:NonControllingInterests',
+
     # === Balance Sheet - Debt Details ===
     'short_term_loans_payable': 'jppfs_cor:ShortTermLoansPayable',
     'long_term_loans_payable': 'jppfs_cor:LongTermLoansPayable',
@@ -134,7 +152,7 @@ ELEMENT_MAP = {
     'earnings_per_share_usgaap': 'jpcrp_cor:BasicEarningsLossPerShareUSGAAPSummaryOfBusinessResults',
     'roe_usgaap': 'jpcrp_cor:RateOfReturnOnEquityUSGAAPSummaryOfBusinessResults',
     # Balance-sheet + per-share + CF elements for US-GAAP summary filers (R3, 2026-06-10).
-    # Prod scan (10 filings): TotalAssets 10/10, EquityToAssetRatio 10/10,
+    # Corpus scan (10 filings): TotalAssets 10/10, EquityToAssetRatio 10/10,
     # EquityAttributableToOwners 8/10, EquityPerShare 9/10, CF trio 10/10.
     'total_assets_usgaap_summary': 'jpcrp_cor:TotalAssetsUSGAAPSummaryOfBusinessResults',
     'net_assets_usgaap_summary': 'jpcrp_cor:EquityAttributableToOwnersOfParentUSGAAPSummaryOfBusinessResults',
@@ -211,14 +229,20 @@ SECURITIES_BOUNDS = [
 # net_assets at TOTAL-equity grain (incl. NCI) for rows where equity_ratio
 # stays owners-only-grain (no total-equity ratio element exists to match it),
 # so this identity can now legitimately annotate on rows it previously
-# skipped (net_assets was None pre-fix). See the fallback functions'
+# skipped (net_assets_total was None pre-fix). See the fallback functions'
 # docstrings for the per-filer reasoning.
 SECURITIES_IDENTITIES = [
+    # Minimal re-point (0.8.0 ownership-basis split): 'net_assets' no longer
+    # exists as a field, so these operands now read 'net_assets_total' --
+    # the containment/reconciliation concept both identities were already
+    # checking. Rule names are unchanged (stable flag-matching strings for
+    # existing consumers). A full per-basis identity rewire (e.g. an
+    # owners-only counterpart) is a later task, not done here.
     Identity(name='identity:equity_ratio~net_assets/total_assets',
-             operands=('equity_ratio', 'net_assets', 'total_assets'),
+             operands=('equity_ratio', 'net_assets_total', 'total_assets'),
              check=_equity_ratio_reconciles),
     Identity(name='identity:net_assets<=total_assets',
-             operands=('net_assets', 'total_assets'),
+             operands=('net_assets_total', 'total_assets'),
              check=_net_assets_le_total_assets),
     Identity(name='identity:current_liabilities<=total_liabilities',
              operands=('current_liabilities', 'total_liabilities'),
@@ -242,6 +266,8 @@ IFRS_FALLBACK_MAP = {
     'jppfs_cor:Assets': 'jpigp_cor:AssetsIFRS',
     'jppfs_cor:NetAssets': 'jpigp_cor:EquityIFRS',
     'jppfs_cor:Liabilities': 'jpigp_cor:LiabilitiesIFRS',
+    # Component (not owners/total basis): same concept, IFRS taxonomy name.
+    'jppfs_cor:NonControllingInterests': 'jpigp_cor:NonControllingInterestsIFRS',
 
     # === Balance Sheet Detail ===
     'jppfs_cor:CashAndDeposits': 'jpigp_cor:CashAndCashEquivalentsIFRS',
@@ -286,17 +312,43 @@ class SecuritiesReport(ParsedReport):
     net_sales: int | None = None
     operating_income: int | None = None
     ordinary_income: int | None = None
-    net_income: int | None = None
+    # net_income split by ownership basis (v0.8.0+): net_income_owners is
+    # attributable to owners of parent (親会社株主に帰属する当期純利益 / IFRS
+    # and US-GAAP owners equivalents); net_income_total includes
+    # non-controlling interests' share. Routed per accounting standard in
+    # parse_securities_report(), never cross-basis coalesced --
+    # net_income_total is structurally None for nearly all US-GAAP filers
+    # (no total-basis element exists in that taxonomy tier). See
+    # SecuritiesReport.__getattr__ for the removed 'net_income' tombstone.
+    net_income_owners: int | None = None
+    net_income_total: int | None = None
 
     # Income Statement (Prior Year)
     prior_net_sales: int | None = None
     prior_operating_income: int | None = None
     prior_ordinary_income: int | None = None
-    prior_net_income: int | None = None
+    # Same ownership-basis split as net_income, read from the prior-year
+    # XBRL context.
+    prior_net_income_owners: int | None = None
+    prior_net_income_total: int | None = None
 
     # Balance Sheet
     total_assets: int | None = None
-    net_assets: int | None = None
+    # net_assets split by ownership basis (v0.8.0+): net_assets_owners is
+    # equity attributable to owners of parent; net_assets_total includes
+    # non-controlling interests. net_assets_owners is ALWAYS None for
+    # J-GAAP filers -- there is no J-GAAP owners-only net-assets element,
+    # and it is never derived by summing the component fields below (honest
+    # absence, not a computed stand-in). See SecuritiesReport.__getattr__
+    # for the removed 'net_assets' tombstone.
+    net_assets_owners: int | None = None
+    net_assets_total: int | None = None
+    # Balance-sheet equity components (J-GAAP FS-level; non_controlling_interests
+    # also fed by its own IFRS element via IFRS_FALLBACK_MAP). Facts as filed,
+    # not used to derive net_assets_owners/net_assets_total.
+    shareholders_equity: int | None = None
+    valuation_translation_adjustments: int | None = None
+    non_controlling_interests: int | None = None
     total_liabilities: int | None = None
 
     # Balance Sheet - Debt Details
@@ -372,6 +424,44 @@ class SecuritiesReport(ParsedReport):
     # exists) but no individual segments could be extracted — an honest flag for a
     # residual miss, so an empty `segments` is not silently read as single-segment.
     segments_extraction_incomplete: bool = False
+
+    # Guided errors for the three fields removed by the v0.8.0 ownership-basis
+    # split. Not a dataclass field (no type annotation) -- a plain class
+    # attribute the dataclass decorator leaves untouched.
+    _TOMBSTONES = {
+        'net_assets': (
+            "'net_assets' was split by ownership basis in edinet-tools 0.8.0. "
+            "Use 'net_assets_total' (includes non-controlling interests -- "
+            "J-GAAP 純資産, jppfs_cor:NetAssets) or 'net_assets_owners' "
+            "(equity attributable to owners of parent; always None for "
+            "J-GAAP filers -- see 'shareholders_equity' plus "
+            "'valuation_translation_adjustments' instead)."
+        ),
+        'net_income': (
+            "'net_income' was split by ownership basis in edinet-tools 0.8.0. "
+            "Use 'net_income_total' (includes non-controlling interests' "
+            "share; structurally None for nearly all US-GAAP filers) or "
+            "'net_income_owners' (親会社株主に帰属する当期純利益 -- attributable "
+            "to owners of parent)."
+        ),
+        'prior_net_income': (
+            "'prior_net_income' was split by ownership basis in edinet-tools "
+            "0.8.0, matching 'net_income'. Use 'prior_net_income_total' or "
+            "'prior_net_income_owners' -- same routing, read from the "
+            "prior-year XBRL context."
+        ),
+    }
+
+    def __getattr__(self, name):
+        """Guide readers of the three removed fields to their ownership-basis
+        replacement(s). Only called when normal attribute lookup fails (i.e.
+        never for a real field), so this cannot shadow anything else."""
+        message = self._TOMBSTONES.get(name)
+        if message is not None:
+            raise AttributeError(message)
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
 
     @property
     def filer(self):
@@ -520,13 +610,14 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         NCI). Matched at the bare (consolidated) context only, so a parent
         (non-consolidated) figure can never win.
 
-        Mixed-grain note: this recovers net_assets at TOTAL-equity grain
-        (incl. non-controlling interest) on rows that otherwise stay owners-
-        only-grain via net_assets_ifrs_summary — see the grain-split comment
-        above SECURITIES_IDENTITIES. equity_ratio has no total-equity-ratio
-        counterpart element to match this grain, so
-        identity:equity_ratio~net_assets/total_assets can now legitimately
-        annotate on these rows (a real grain gap, not an extraction bug)."""
+        Ownership-basis note (v0.8.0+): this fills net_assets_total (includes
+        non-controlling interest); net_assets_owners stays whatever
+        net_assets_ifrs_summary independently produced (usually None here,
+        since that tier is absent on these filers) — no cross-basis
+        coalescing. equity_ratio has no total-equity-ratio counterpart
+        element, so identity:equity_ratio~net_assets/total_assets (checked
+        against net_assets_total) can legitimately annotate on these rows —
+        a real ownership-basis gap, not an extraction bug."""
         for row in match_element_by_suffix(csv_files, 'TotalEquityIFRSSummaryOfBusinessResults'):
             if (row.get('コンテキストID', '') or '') == period:
                 v = coerce_numeric_value(row.get('値', ''))
@@ -545,11 +636,10 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         standard jpcrp_cor: namespace in practice, but a per-filer custom
         namespace cannot be ruled out); bare (consolidated) context only.
 
-        Same mixed-grain note as get_net_assets_ifrs_total_by_suffix above:
-        recovers net_assets at TOTAL-equity grain (incl. NCI), which can
-        legitimately trip identity:equity_ratio~net_assets/total_assets
-        against the owners-only equity_ratio element — see the grain-split
-        comment above SECURITIES_IDENTITIES."""
+        Same ownership-basis note as get_net_assets_ifrs_total_by_suffix
+        above: fills net_assets_total (incl. NCI), which can legitimately
+        trip identity:equity_ratio~net_assets/total_assets against the
+        owners-only equity_ratio element."""
         for row in match_element_by_suffix(
             csv_files,
             'EquityIncludingPortionAttributableToNonControllingInterestUSGAAPSummaryOfBusinessResults',
@@ -592,12 +682,20 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         get_fin('ordinary_income_usgaap_summary', 'CurrentYearDuration'),
         get_fin('ordinary_income_fs', 'CurrentYearDuration'),
     )
-    net_income = _coalesce(
+    # net_income split by ownership basis (v0.8.0+). Owners-basis sources
+    # (J-GAAP summary + NEW FS-level jppfs:ProfitLossAttributableToOwnersOfParent,
+    # IFRS summary, US-GAAP summary) fill ONLY net_income_owners; the single
+    # total-basis source (jppfs:ProfitLoss, with its existing IFRS_FALLBACK_MAP
+    # fallback to jpigp_cor:ProfitLossIFRS) fills ONLY net_income_total. No
+    # cross-basis coalescing -- net_income_total stays honest-None for
+    # US-GAAP (no total-basis element exists in that taxonomy).
+    net_income_owners = _coalesce(
         get_fin('net_income_summary', 'CurrentYearDuration'),
         get_fin('net_income_ifrs_summary', 'CurrentYearDuration'),
         get_fin('net_income_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('net_income_fs', 'CurrentYearDuration'),
+        get_fin('net_income_owners_fs', 'CurrentYearDuration'),
     )
+    net_income_total = get_fin('net_income_fs', 'CurrentYearDuration')
 
     # Prior year
     prior_net_sales = _coalesce(
@@ -624,12 +722,14 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         get_fin('ordinary_income_usgaap_summary', 'Prior1YearDuration'),
         get_fin('ordinary_income_fs', 'Prior1YearDuration'),
     )
-    prior_net_income = _coalesce(
+    # Same ownership-basis split as net_income, read from the prior-year context.
+    prior_net_income_owners = _coalesce(
         get_fin('net_income_summary', 'Prior1YearDuration'),
         get_fin('net_income_ifrs_summary', 'Prior1YearDuration'),
         get_fin('net_income_usgaap_summary', 'Prior1YearDuration'),
-        get_fin('net_income_fs', 'Prior1YearDuration'),
+        get_fin('net_income_owners_fs', 'Prior1YearDuration'),
     )
+    prior_net_income_total = get_fin('net_income_fs', 'Prior1YearDuration')
 
     # Balance sheet
     total_assets = _coalesce(
@@ -638,15 +738,36 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         get_fin('total_assets_usgaap_summary', 'CurrentYearInstant'),
         get_fin('total_assets_fs', 'CurrentYearInstant'),
     )
-    net_assets = _coalesce(
-        get_fin('net_assets_summary', 'CurrentYearInstant'),
+    # net_assets split by ownership basis (v0.8.0+). Owners-basis sources
+    # (IFRS summary + NEW FS-level jpigp_cor:EquityAttributableToOwnersOfParentIFRS,
+    # US-GAAP summary) fill ONLY net_assets_owners -- J-GAAP has no owners-only
+    # net-assets element, so net_assets_owners is ALWAYS None for J-GAAP filers
+    # (never derived from the component fields below). Total-basis sources
+    # (J-GAAP summary + FS jppfs:NetAssets w/ its existing IFRS_FALLBACK_MAP
+    # fallback to jpigp_cor:EquityIFRS, plus the two stage-3 suffix-matched
+    # total-equity fallbacks -- TotalEquityIFRS.../EquityIncludingNCI...,
+    # re-routed here from the pre-0.8.0 single net_assets field) fill ONLY
+    # net_assets_total. No cross-basis coalescing anywhere.
+    net_assets_owners = _coalesce(
         get_fin('net_assets_ifrs_summary', 'CurrentYearInstant'),
-        get_net_assets_ifrs_total_by_suffix('CurrentYearInstant'),
+        get_fin('net_assets_owners_ifrs_fs', 'CurrentYearInstant'),
         get_fin('net_assets_usgaap_summary', 'CurrentYearInstant'),
+    )
+    net_assets_total = _coalesce(
+        get_fin('net_assets_summary', 'CurrentYearInstant'),
+        get_net_assets_ifrs_total_by_suffix('CurrentYearInstant'),
         get_net_assets_usgaap_total_by_suffix('CurrentYearInstant'),
         get_fin('net_assets_fs', 'CurrentYearInstant'),
     )
     total_liabilities = get_fin('total_liabilities_fs', 'CurrentYearInstant')
+
+    # Balance-sheet equity components (J-GAAP FS-level; non_controlling_interests
+    # also fed by jpigp_cor:NonControllingInterestsIFRS via IFRS_FALLBACK_MAP).
+    # Facts as filed -- never summed to derive net_assets_owners/net_assets_total.
+    shareholders_equity = get_fin('shareholders_equity', 'CurrentYearInstant')
+    valuation_translation_adjustments = get_fin(
+        'valuation_translation_adjustments', 'CurrentYearInstant')
+    non_controlling_interests = get_fin('non_controlling_interests', 'CurrentYearInstant')
 
     # Debt details
     short_term_loans_payable = get_fin('short_term_loans_payable', 'CurrentYearInstant')
@@ -842,17 +963,23 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         net_sales=net_sales,
         operating_income=operating_income,
         ordinary_income=ordinary_income,
-        net_income=net_income,
+        net_income_owners=net_income_owners,
+        net_income_total=net_income_total,
 
         # Income Statement (Prior)
         prior_net_sales=prior_net_sales,
         prior_operating_income=prior_operating_income,
         prior_ordinary_income=prior_ordinary_income,
-        prior_net_income=prior_net_income,
+        prior_net_income_owners=prior_net_income_owners,
+        prior_net_income_total=prior_net_income_total,
 
         # Balance Sheet
         total_assets=total_assets,
-        net_assets=net_assets,
+        net_assets_owners=net_assets_owners,
+        net_assets_total=net_assets_total,
+        shareholders_equity=shareholders_equity,
+        valuation_translation_adjustments=valuation_translation_adjustments,
+        non_controlling_interests=non_controlling_interests,
         total_liabilities=total_liabilities,
 
         # Balance Sheet - Debt Details

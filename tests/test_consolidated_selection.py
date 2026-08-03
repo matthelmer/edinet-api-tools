@@ -61,9 +61,9 @@ def test_revenue_invariant_holds(name):
     if r.operating_income is not None:
         assert r.operating_income <= r.net_sales, \
             f'{name}: op_income {r.operating_income:,} > net_sales {r.net_sales:,} = parent-revenue tell'
-    if r.net_income is not None:
-        assert r.net_income <= r.net_sales, \
-            f'{name}: net_income {r.net_income:,} > net_sales {r.net_sales:,}'
+    if r.net_income_owners is not None:
+        assert r.net_income_owners <= r.net_sales, \
+            f'{name}: net_income_owners {r.net_income_owners:,} > net_sales {r.net_sales:,}'
 
 
 def test_jgaap_control_unaffected():
@@ -83,7 +83,7 @@ def test_usgaap_income_statement_mapped_sony():
                                 doc_id='TEST', doc_type_code='120')
     assert r.net_sales == 8_259_885_000_000
     assert r.ordinary_income == 799_450_000_000   # profit-before-tax (US-GAAP analogue)
-    assert r.net_income == 582_191_000_000
+    assert r.net_income_owners == 582_191_000_000
     assert r.earnings_per_share is not None and abs(float(r.earnings_per_share) - 471.64) < 0.01
     assert r.roe is not None and abs(float(r.roe) - 0.148) < 0.001
     assert r.operating_income == 845_459_000_000  # OperatingIncomeLossUSGAAPSummaryOfBusinessResults
@@ -104,9 +104,9 @@ def test_strict_consolidated_nulls_are_honest_mhi():
     # Recovered / correct consolidated values (revenue is standard IFRS-summary, like Takeda):
     assert r.net_sales == 5_027_176_000_000        # consolidated, NOT parent 1,947,178,000,000
     assert r.ordinary_income == 374_531_000_000
-    assert r.net_income == 245_447_000_000
+    assert r.net_income_owners == 245_447_000_000
     assert r.total_assets == 6_658_924_000_000
-    assert r.net_assets == 2_346_702_000_000
+    assert r.net_assets_owners == 2_346_702_000_000
 
     # Honest-None: no consolidated source exists; these were the parent figure before.
     # operating_income: MHI reports a custom "business profit", no standard consolidated

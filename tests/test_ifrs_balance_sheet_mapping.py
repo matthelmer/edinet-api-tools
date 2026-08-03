@@ -106,7 +106,7 @@ def test_ifrs_net_assets_recovers_total_equity_by_suffix():
     # filing — this is not a naming variant of it, so both tiers coexist safely.
     r = _parse('ifrs_net_assets_fixture_1')
     assert r.accounting_standard == 'IFRS'
-    assert r.net_assets == 2_842_027_000_000
+    assert r.net_assets_total == 2_842_027_000_000
 
 
 def test_ifrs_net_assets_second_fixture():
@@ -114,7 +114,7 @@ def test_ifrs_net_assets_second_fixture():
     # CurrentYearInstant = 720,546,000,000 (jpcrp030000-asr_E00436-000: namespace).
     r = _parse('ifrs_net_assets_fixture_2')
     assert r.accounting_standard == 'IFRS'
-    assert r.net_assets == 720_546_000_000
+    assert r.net_assets_total == 720_546_000_000
 
 
 def test_ifrs_net_assets_rejects_liabilities_and_net_assets_concept_mismatch():
@@ -124,8 +124,8 @@ def test_ifrs_net_assets_rejects_liabilities_and_net_assets_concept_mismatch():
     # element by concept/context, not by frequency rank. net_assets must NOT
     # equal that non-consolidated total (2,885,760,000,000 for fixture 1).
     r = _parse('ifrs_net_assets_fixture_1')
-    assert r.net_assets != 2_885_760_000_000
-    assert r.net_assets == 2_842_027_000_000
+    assert r.net_assets_total != 2_885_760_000_000
+    assert r.net_assets_total == 2_842_027_000_000
 
 
 def test_ifrs_total_liabilities_stays_honest_none_despite_present_element():
@@ -150,7 +150,7 @@ def test_usgaap_net_assets_recovers_total_equity_by_suffix():
     # this filing.
     r = _parse('usgaap_net_assets_fixture_1')
     assert r.accounting_standard == 'US GAAP'
-    assert r.net_assets == 3_448_513_000_000
+    assert r.net_assets_total == 3_448_513_000_000
 
 
 def test_usgaap_net_assets_rejects_shareholders_equity_subcomponent():
@@ -159,8 +159,8 @@ def test_usgaap_net_assets_rejects_shareholders_equity_subcomponent():
     # not the total. net_assets must come from the total-equity element, not
     # this narrower/non-consolidated one.
     r = _parse('usgaap_net_assets_fixture_1')
-    assert r.net_assets != 2_654_986_000_000
-    assert r.net_assets == 3_448_513_000_000
+    assert r.net_assets_total != 2_654_986_000_000
+    assert r.net_assets_total == 3_448_513_000_000
 
 
 def test_recovered_total_equity_grain_trips_equity_ratio_identity():
@@ -177,7 +177,7 @@ def test_recovered_total_equity_grain_trips_equity_ratio_identity():
     # = 720,546,000,000 / 1,425,859,000,000 = 0.5054 vs stored equity_ratio
     # 0.450 (owners-only) — a 0.0554 gap, past the 0.02 tolerance. Fires.
     r2 = _parse('ifrs_net_assets_fixture_2')
-    assert r2.net_assets == 720_546_000_000  # recovered value stays present, not withheld
+    assert r2.net_assets_total == 720_546_000_000  # recovered value stays present, not withheld
     identity_flags = [
         f for f in r2.extraction_flags
         if f.rule == 'identity:equity_ratio~net_assets/total_assets'
@@ -192,7 +192,7 @@ def test_recovered_total_equity_grain_trips_equity_ratio_identity():
     # 0.5289 — a 0.0154 gap, UNDER the 0.02 tolerance. Does not fire — pinning
     # the other side so both outcomes of the same new fallback are covered.
     r1 = _parse('ifrs_net_assets_fixture_1')
-    assert r1.net_assets == 2_842_027_000_000
+    assert r1.net_assets_total == 2_842_027_000_000
     assert not any(
         f.rule == 'identity:equity_ratio~net_assets/total_assets'
         for f in r1.extraction_flags

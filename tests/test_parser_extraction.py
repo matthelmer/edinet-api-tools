@@ -121,9 +121,9 @@ class TestSecuritiesExtraction:
         assert r.net_sales == 50000000000
         assert r.operating_income == 4500000000
         assert r.ordinary_income == 5000000000
-        assert r.net_income == 3000000000
+        assert r.net_income_owners == 3000000000
         assert r.total_assets == 100000000000
-        assert r.net_assets == 40000000000
+        assert r.net_assets_total == 40000000000
 
         # Cash flow
         assert r.operating_cash_flow == 6000000000
@@ -240,13 +240,13 @@ class TestSecuritiesExtraction:
         # Operating income from IFRS FS (via IFRS_FALLBACK_MAP)
         assert r.operating_income == 1800000000000
 
-        # Net income from IFRS Summary
-        assert r.net_income == 1200000000000
-        assert r.prior_net_income == 1100000000000
+        # Net income from IFRS Summary (owners-of-parent basis)
+        assert r.net_income_owners == 1200000000000
+        assert r.prior_net_income_owners == 1100000000000
 
-        # Balance sheet from IFRS Summary
+        # Balance sheet from IFRS Summary (owners-of-parent basis)
         assert r.total_assets == 22000000000000
-        assert r.net_assets == 8000000000000
+        assert r.net_assets_owners == 8000000000000
 
         # Cash flow from IFRS Summary
         assert r.operating_cash_flow == 1500000000000
@@ -284,7 +284,7 @@ class TestSecuritiesExtraction:
         r = parse_securities_report(doc)
 
         assert r.net_sales == 5000000000000
-        assert r.net_income == 300000000000
+        assert r.net_income_total == 300000000000
         assert r.total_assets == 8000000000000
 
 
