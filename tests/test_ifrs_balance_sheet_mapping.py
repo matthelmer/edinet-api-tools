@@ -163,37 +163,34 @@ def test_usgaap_net_assets_rejects_shareholders_equity_subcomponent():
     assert r.net_assets_total == 3_448_513_000_000
 
 
-def test_recovered_total_equity_grain_trips_equity_ratio_identity():
-    # The recovered net_assets values are TOTAL equity (including
-    # non-controlling interest), while equity_ratio (net_assets_ifrs_summary's
-    # sibling ratio element) is owners-only-attributable. Where a filer's NCI
-    # slice is large enough, equity_ratio (owners-only / total_assets) and the
-    # now-populated net_assets/total_assets diverge past IDENTITY_TOLERANCE
-    # (0.02) — this is CORRECT: the identity check is supposed to fire on a
-    # real grain mismatch, not a bug in the fix. It never withholds (identities
-    # only ANNOTATE), so net_assets stays populated.
-    #
-    # ifrs_net_assets_fixture_2 (Ajinomoto, S100DDYF): net_assets/total_assets
-    # = 720,546,000,000 / 1,425,859,000,000 = 0.5054 vs stored equity_ratio
-    # 0.450 (owners-only) — a 0.0554 gap, past the 0.02 tolerance. Fires.
+def test_recovered_total_equity_skips_owners_basis_identity_not_annotates():
+    # Ownership-basis identity rewire (0.8.0 stage-4, Task 3): the
+    # equity-ratio identity now checks IFRS/US-GAAP's equity_ratio
+    # (owners-only-attributable) against net_assets_owners, not
+    # net_assets_total. Both these fixtures have their primary owners-basis
+    # tier entirely absent (see test_ifrs_net_assets_recovers_total_equity_by_suffix
+    # above) — only the suffix-recovered TOTAL-equity fallback fires, so
+    # net_assets_owners is honest-None. Pre-rewire, the single
+    # equity_ratio~net_assets/total_assets identity read net_assets_total and
+    # produced an ANNOTATED flag on rows like fixture 2 below (owners-only
+    # ratio vs total-basis net_assets — a real ownership-basis gap, not a
+    # data error, but still surfaced a flag). Post-rewire it correctly SKIPS
+    # instead (no operand to compare against) — eliminating that
+    # false-positive-shaped annotation class entirely. It never withheld
+    # either way (identities only ANNOTATE); net_assets_total stays present.
     r2 = _parse('ifrs_net_assets_fixture_2')
-    assert r2.net_assets_total == 720_546_000_000  # recovered value stays present, not withheld
-    identity_flags = [
+    assert r2.net_assets_total == 720_546_000_000  # recovered value stays present
+    assert r2.net_assets_owners is None
+    owners_ratio_flags = [
         f for f in r2.extraction_flags
-        if f.rule == 'identity:equity_ratio~net_assets/total_assets'
+        if f.rule == 'identity:equity_ratio~net_assets_owners/total_assets'
     ]
-    assert len(identity_flags) == 1
-    flag = identity_flags[0]
-    assert flag.field == 'equity_ratio'
-    assert flag.severity == 'annotated'
+    assert owners_ratio_flags == []
 
-    # ifrs_net_assets_fixture_1 (S100CUBT): net_assets/total_assets =
-    # 2,842,027,000,000 / 5,221,484,000,000 = 0.5443 vs stored equity_ratio
-    # 0.5289 — a 0.0154 gap, UNDER the 0.02 tolerance. Does not fire — pinning
-    # the other side so both outcomes of the same new fallback are covered.
     r1 = _parse('ifrs_net_assets_fixture_1')
     assert r1.net_assets_total == 2_842_027_000_000
+    assert r1.net_assets_owners is None
     assert not any(
-        f.rule == 'identity:equity_ratio~net_assets/total_assets'
+        f.rule == 'identity:equity_ratio~net_assets_owners/total_assets'
         for f in r1.extraction_flags
     )

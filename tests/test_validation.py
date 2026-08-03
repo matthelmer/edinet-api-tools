@@ -208,12 +208,18 @@ class TestSecuritiesParserValidation:
             in report.raw_fields
 
     def test_identity_annotates_on_grain_mismatch(self):
+        # J-GAAP's equity-ratio identity checks against shareholders_equity +
+        # valuation_translation_adjustments (0.8.0 stage-4 ownership-basis
+        # rewire — see SECURITIES_IDENTITIES), not a single net_assets
+        # element. 550 + 50 = 600; 600/1000 = 0.60 computed vs 0.30 stated —
+        # same mismatch magnitude as the pre-rewire version of this test.
         from edinet_tools.parsers.securities import parse_securities_report
         rows = BASE_ROWS + [
             _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
                  'CurrentYearInstant', '0.30'),
-            _row('jpcrp_cor:NetAssetsSummaryOfBusinessResults',
-                 'CurrentYearInstant', '600'),
+            _row('jppfs_cor:ShareholdersEquity', 'CurrentYearInstant', '550'),
+            _row('jppfs_cor:ValuationAndTranslationAdjustments',
+                 'CurrentYearInstant', '50'),
             _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
                  'CurrentYearInstant', '1000'),
         ]
@@ -225,10 +231,15 @@ class TestSecuritiesParserValidation:
         assert report.equity_ratio == Decimal('0.30')  # never suppressed
 
     def test_clean_report_has_zero_flags(self):
+        # 550 + 50 = 600; 600/1000 = 0.60 computed, matches 0.60 stated —
+        # genuinely clean, not merely skipped for missing operands.
         from edinet_tools.parsers.securities import parse_securities_report
         rows = BASE_ROWS + [
             _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
                  'CurrentYearInstant', '0.60'),
+            _row('jppfs_cor:ShareholdersEquity', 'CurrentYearInstant', '550'),
+            _row('jppfs_cor:ValuationAndTranslationAdjustments',
+                 'CurrentYearInstant', '50'),
             _row('jpcrp_cor:NetAssetsSummaryOfBusinessResults',
                  'CurrentYearInstant', '600'),
             _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',

@@ -345,6 +345,232 @@ class TestNoCrossBasisLeaks:
 
 
 # =====================================================================
+# Ownership-basis identity rewire (Task 3, Decision 4): the equity-ratio
+# identity used to compare a single equity_ratio element against
+# net_assets_total regardless of accounting standard. It is now split per
+# standard: IFRS/US-GAAP's equity_ratio element is owners-only-attributable,
+# so it is checked against net_assets_owners; J-GAAP has no owners-only
+# net-assets element, so its equity_ratio is checked against an
+# in-check-only sum of shareholders_equity + valuation_translation_adjustments
+# (never written back to any field or shipped as data). No owners<=total
+# containment rule exists for any field pair -- non-controlling interests
+# can themselves post a loss, so an owners-attributable figure can
+# legitimately EXCEED the corresponding total-including-NCI figure (the
+# HOYA counterexample below).
+# =====================================================================
+
+class TestOwnershipBasisEquityRatioIdentity:
+    def test_ifrs_equity_ratio_identity_compares_against_net_assets_owners(self):
+        # equity_ratio (owners-only, RatioOfOwnersEquityToGrossAssetsIFRS...)
+        # vs net_assets_owners: 500/1000 = 0.50 computed, 0.30 stated -> 0.20
+        # gap, past IDENTITY_TOLERANCE (0.02) -> annotate. The rule NAME is
+        # the load-bearing assertion here: it must read 'net_assets_owners',
+        # proving the operand actually switched off net_assets_total.
+        rows = _dei('IFRS') + [
+            _row('jpcrp_cor:RatioOfOwnersEquityToGrossAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jpcrp_cor:EquityAttributableToOwnersOfParentIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '500'),
+            _row('jpigp_cor:EquityIFRS', 'CurrentYearInstant', '600'),
+            _row('jpcrp_cor:TotalAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        assert r.net_assets_owners == 500
+        assert r.net_assets_total == 600
+        flags = [f for f in r.extraction_flags
+                 if f.rule == 'identity:equity_ratio~net_assets_owners/total_assets']
+        assert len(flags) == 1
+        assert 'net_assets_owners=500' in flags[0].value
+
+    def test_ifrs_equity_ratio_identity_within_tolerance_no_flag(self):
+        # 500/1000 = 0.50 computed, 0.50 stated -> exact match, no flag.
+        rows = _dei('IFRS') + [
+            _row('jpcrp_cor:RatioOfOwnersEquityToGrossAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.50'),
+            _row('jpcrp_cor:EquityAttributableToOwnersOfParentIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '500'),
+            _row('jpcrp_cor:TotalAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        flags = [f for f in r.extraction_flags
+                 if f.rule == 'identity:equity_ratio~net_assets_owners/total_assets']
+        assert flags == []
+
+    def test_jgaap_equity_ratio_identity_compares_against_component_sum(self):
+        # J-GAAP has no owners-only net-assets element -- the identity
+        # instead sums shareholders_equity (700) + valuation_translation_
+        # adjustments (50) = 750 in-check-only, never written to any field.
+        # 750/1000 = 0.75 computed vs 0.30 stated -> annotate.
+        rows = _dei('Japan GAAP') + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jppfs_cor:ShareholdersEquity', 'CurrentYearInstant', '700'),
+            _row('jppfs_cor:ValuationAndTranslationAdjustments',
+                 'CurrentYearInstant', '50'),
+            _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        assert r.shareholders_equity == 700
+        assert r.valuation_translation_adjustments == 50
+        # The in-check-only sum (750) must never be written back anywhere.
+        assert not hasattr(r, 'net_assets_owners_derived')
+        assert r.net_assets_owners is None  # J-GAAP: always None, never derived
+        flags = [
+            f for f in r.extraction_flags
+            if f.rule.startswith('identity:equity_ratio~shareholders_equity')
+        ]
+        assert len(flags) == 1
+        assert 'shareholders_equity=700' in flags[0].value
+        assert 'valuation_translation_adjustments=50' in flags[0].value
+
+    def test_jgaap_equity_ratio_identity_within_tolerance_no_flag(self):
+        # 700 + 50 = 750; 750/1000 = 0.75 computed, 0.75 stated -> no flag.
+        rows = _dei('Japan GAAP') + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.75'),
+            _row('jppfs_cor:ShareholdersEquity', 'CurrentYearInstant', '700'),
+            _row('jppfs_cor:ValuationAndTranslationAdjustments',
+                 'CurrentYearInstant', '50'),
+            _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        flags = [
+            f for f in r.extraction_flags
+            if f.rule.startswith('identity:equity_ratio~shareholders_equity')
+        ]
+        assert flags == []
+
+    def test_jgaap_equity_ratio_identity_skips_when_either_component_missing(self):
+        # valuation_translation_adjustments absent -> skip, never fail (the
+        # any-None-skips contract falls out of apply_identities for free --
+        # no special-casing needed in the check function).
+        rows = _dei('Japan GAAP') + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jppfs_cor:ShareholdersEquity', 'CurrentYearInstant', '700'),
+            _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        assert r.valuation_translation_adjustments is None
+        flags = [
+            f for f in r.extraction_flags
+            if f.rule.startswith('identity:equity_ratio~shareholders_equity')
+        ]
+        assert flags == []
+
+    def test_ifrs_identity_out_of_scope_for_jgaap_report(self):
+        rows = _dei('Japan GAAP') + [
+            _row('jpcrp_cor:EquityToAssetRatioSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jppfs_cor:NetAssets', 'CurrentYearInstant', '999999'),
+            _row('jpcrp_cor:TotalAssetsSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        flags = [
+            f for f in r.extraction_flags
+            if f.rule == 'identity:equity_ratio~net_assets_owners/total_assets'
+        ]
+        assert flags == []
+
+    def test_jgaap_identity_out_of_scope_for_ifrs_report(self):
+        rows = _dei('IFRS') + [
+            _row('jpcrp_cor:RatioOfOwnersEquityToGrossAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.30'),
+            _row('jppfs_cor:ShareholdersEquity', 'CurrentYearInstant', '700'),
+            _row('jppfs_cor:ValuationAndTranslationAdjustments',
+                 'CurrentYearInstant', '50'),
+            _row('jpcrp_cor:TotalAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1000'),
+        ]
+        r = _parse(rows)
+        # jppfs_cor:ShareholdersEquity/ValuationAndTranslationAdjustments are
+        # extraction-gated by XBRL context (bare context = consolidated), not
+        # by accounting_standard -- at the bare CurrentYearInstant context
+        # used here, both components DO populate even on an IFRS report (see
+        # TestParentContextExclusion above for the realistic
+        # _NonConsolidatedMember-only case, which stays honest-None). Both
+        # operands are therefore non-None here -- this is a genuine
+        # belt-and-suspenders check that the J-GAAP identity's `standards`
+        # scope, not operand availability, is what excludes it from firing
+        # on an IFRS report.
+        assert r.shareholders_equity == 700
+        assert r.valuation_translation_adjustments == 50
+        flags = [
+            f for f in r.extraction_flags
+            if f.rule.startswith('identity:equity_ratio~shareholders_equity')
+        ]
+        assert flags == []
+
+
+class TestHoyaOwnersExceedsTotalNoFalseFlag:
+    """HOYA counterexample (Decision 4's explicit trap): HOYA's IFRS filing
+    has net_income_owners (253,085) > net_income_total (251,451) because
+    minorities lost money that period (NCI's own profit share is negative,
+    -1,633). An owners<=total containment rule on ANY field pair would
+    incorrectly flag this as a violation. No such rule exists in
+    SECURITIES_IDENTITIES -- this test proves it by construction: parse a
+    HOYA-shaped report with the inversion present on both net_income and
+    net_assets, and assert there are ZERO flags from any rule touching
+    these fields, not just that one specific named rule is absent."""
+
+    def _hoya_shaped_rows(self):
+        return _dei('IFRS') + [
+            # Income: owners (253,085) > total (251,451) -- the real HOYA
+            # FYE2026-03 inversion (see the golden-fixture panel for the
+            # IR-pinned figures backing these numbers).
+            _row('jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS',
+                 'CurrentYearDuration', '253085'),
+            _row('jpigp_cor:ProfitLossIFRS', 'CurrentYearDuration', '251451'),
+            # Equity: owners/total inversion is structurally possible the
+            # same way (NCI can carry a cumulative deficit) -- exercised
+            # synthetically here since HOYA's own equity does not invert.
+            _row('jpcrp_cor:EquityAttributableToOwnersOfParentIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1035004'),
+            _row('jpigp_cor:EquityIFRS', 'CurrentYearInstant', '1020460'),
+            _row('jpcrp_cor:RatioOfOwnersEquityToGrossAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '0.70'),
+            _row('jpcrp_cor:TotalAssetsIFRSSummaryOfBusinessResults',
+                 'CurrentYearInstant', '1478577'),
+        ]
+
+    def test_inversion_present_on_both_fields(self):
+        r = self._hoya_shaped_rows()
+        r = _parse(r)
+        assert r.net_income_owners == 253085
+        assert r.net_income_total == 251451
+        assert r.net_income_owners > r.net_income_total
+        assert r.net_assets_owners == 1035004
+        assert r.net_assets_total == 1020460
+        assert r.net_assets_owners > r.net_assets_total
+
+    def test_zero_flags_from_any_containment_or_identity_on_the_inversion(self):
+        r = _parse(self._hoya_shaped_rows())
+        # No rule name anywhere may mention both an owners field and a total
+        # field of the SAME concept in a <=/>= containment shape. Assert
+        # this both by construction (no such flags fired) and by scanning
+        # every flag that touched net_income_owners, net_income_total,
+        # net_assets_owners, or net_assets_total for anything but the two
+        # rules known to be safe (containment against total_assets, and the
+        # per-standard equity_ratio identities -- neither compares owners
+        # to total directly).
+        touched_fields = {'net_income_owners', 'net_income_total',
+                          'net_assets_owners', 'net_assets_total'}
+        offending = [
+            f for f in r.extraction_flags
+            if f.field in touched_fields or
+            any(tf in f.value for tf in ('net_income_owners=', 'net_income_total=',
+                                          'net_assets_owners=', 'net_assets_total='))
+        ]
+        assert offending == [], offending
+
+
+# =====================================================================
 # Tombstones: removed-field reads raise a guided AttributeError
 # =====================================================================
 

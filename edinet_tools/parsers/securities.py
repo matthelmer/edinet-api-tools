@@ -208,6 +208,19 @@ def _equity_ratio_reconciles(er, na, ta):
     return abs(er - na / ta) <= IDENTITY_TOLERANCE
 
 
+def _equity_ratio_reconciles_jgaap(er, se, vta, ta):
+    """J-GAAP has no owners-only net-assets element, so the owners-basis
+    instrument for this identity is computed on the fly as
+    shareholders_equity + valuation_translation_adjustments -- an
+    in-check-only sum, never written back to any field or shipped as data.
+    If either component is None, apply_identities' any-None-skips loop over
+    identity.operands already skips the whole identity before this function
+    is ever called -- no special-casing needed here."""
+    if ta == 0:
+        return None
+    return abs(er - (se + vta) / ta) <= IDENTITY_TOLERANCE
+
+
 def _net_assets_le_total_assets(na, ta):
     return na <= ta
 
@@ -226,27 +239,45 @@ SECURITIES_BOUNDS = [
     Bound(field='num_employees', min_value=0),
 ]
 
-# Accounting identities: annotate only. The J-GAAP equity-ratio identity is
-# expected to annotate ~15% of rows pre-0.8.0 (owners-equity vs total
-# net-assets grain); that cohort is the baseline for the planned
-# owners-equity grain split. The 0.8.0 IFRS/US-GAAP total-equity fallbacks
-# (get_net_assets_ifrs_total_by_suffix / get_net_assets_usgaap_total_by_suffix,
-# below) are a second, deliberate source of the same grain mix: they recover
-# net_assets at TOTAL-equity grain (incl. NCI) for rows where equity_ratio
-# stays owners-only-grain (no total-equity ratio element exists to match it),
-# so this identity can now legitimately annotate on rows it previously
-# skipped (net_assets_total was None pre-fix). See the fallback functions'
-# docstrings for the per-filer reasoning.
+# Accounting identities: annotate only. The equity-ratio identity is split
+# per ownership basis (Decision 4, 0.8.0 stage-4 rewire): IFRS/US-GAAP's
+# equity_ratio element is owners-only-attributable (RatioOfOwnersEquity...
+# IFRS, EquityToAssetRatioUSGAAP...), so it is checked against
+# net_assets_owners; J-GAAP has no owners-only net-assets element, so its
+# equity_ratio is checked against shareholders_equity +
+# valuation_translation_adjustments (an in-check-only sum -- see
+# _equity_ratio_reconciles_jgaap's docstring). The pre-0.8.0 single identity
+# annotated ~15% of J-GAAP rows on an owners-equity-vs-total-net-assets
+# ownership-basis mismatch that was a correctly-filed disagreement, not an
+# extraction bug -- this rewire is what actually resolves that class rather
+# than continuing to annotate it. The 0.8.0 IFRS/US-GAAP total-equity
+# fallbacks (get_net_assets_ifrs_total_by_suffix /
+# get_net_assets_usgaap_total_by_suffix, below) fill net_assets_total (incl.
+# NCI) for filers with no owners/NCI split in their highlights table at
+# all; net_assets_owners stays honest-None for those rows, so the
+# owners-basis identity now correctly SKIPS them (no operand to compare)
+# instead of annotating a false ownership-basis mismatch. See the fallback
+# functions' docstrings for the per-filer reasoning.
+#
+# DELIBERATELY no owners<=total containment rule for any field pair
+# (net_assets_owners/net_assets_total, net_income_owners/net_income_total,
+# prior_net_income_owners/prior_net_income_total): non-controlling interests
+# can themselves post a loss, so a filer's owners-attributable figure can
+# legitimately EXCEED its total-including-NCI figure -- HOYA's FYE2026-03
+# filing is exactly this shape (net_income_owners 253,085 > net_income_total
+# 251,451; NCI's own profit share is -1,633). An owners<=total rule would
+# incorrectly flag a real, correctly-filed inversion. See
+# TestHoyaOwnersExceedsTotalNoFalseFlag in tests/test_grain_split.py.
 SECURITIES_IDENTITIES = [
-    # Minimal re-point (0.8.0 ownership-basis split): 'net_assets' no longer
-    # exists as a field, so these operands now read 'net_assets_total' --
-    # the containment/reconciliation concept both identities were already
-    # checking. Rule names are unchanged (stable flag-matching strings for
-    # existing consumers). A full per-basis identity rewire (e.g. an
-    # owners-only counterpart) is a later task, not done here.
-    Identity(name='identity:equity_ratio~net_assets/total_assets',
-             operands=('equity_ratio', 'net_assets_total', 'total_assets'),
-             check=_equity_ratio_reconciles),
+    Identity(name='identity:equity_ratio~net_assets_owners/total_assets',
+             operands=('equity_ratio', 'net_assets_owners', 'total_assets'),
+             check=_equity_ratio_reconciles,
+             standards=('IFRS', 'US GAAP')),
+    Identity(name='identity:equity_ratio~shareholders_equity+valuation_translation_adjustments/total_assets',
+             operands=('equity_ratio', 'shareholders_equity',
+                       'valuation_translation_adjustments', 'total_assets'),
+             check=_equity_ratio_reconciles_jgaap,
+             standards=('Japan GAAP',)),
     Identity(name='identity:net_assets<=total_assets',
              operands=('net_assets_total', 'total_assets'),
              check=_net_assets_le_total_assets),
@@ -616,14 +647,17 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         NCI). Matched at the bare (consolidated) context only, so a parent
         (non-consolidated) figure can never win.
 
-        Ownership-basis note (v0.8.0+): this fills net_assets_total (includes
-        non-controlling interest); net_assets_owners stays whatever
-        net_assets_ifrs_summary independently produced (usually None here,
-        since that tier is absent on these filers) — no cross-basis
-        coalescing. equity_ratio has no total-equity-ratio counterpart
-        element, so identity:equity_ratio~net_assets/total_assets (checked
-        against net_assets_total) can legitimately annotate on these rows —
-        a real ownership-basis gap, not an extraction bug."""
+        Ownership-basis note (v0.8.0+ stage-4 rewire): this fills
+        net_assets_total (includes non-controlling interest); net_assets_owners
+        stays whatever net_assets_ifrs_summary independently produced (usually
+        None here, since that tier is absent on these filers) — no cross-basis
+        coalescing. Because the equity-ratio identity is now scoped per
+        ownership basis (identity:equity_ratio~net_assets_owners/total_assets,
+        IFRS/US-GAAP only), it SKIPS on these rows — net_assets_owners is
+        honest-None, not a value to compare — rather than annotating a false
+        ownership-basis mismatch. The containment identity
+        (identity:net_assets<=total_assets) still applies independently
+        against net_assets_total."""
         for row in match_element_by_suffix(csv_files, 'TotalEquityIFRSSummaryOfBusinessResults'):
             if (row.get('コンテキストID', '') or '') == period:
                 v = coerce_numeric_value(row.get('値', ''))
@@ -643,9 +677,11 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         namespace cannot be ruled out); bare (consolidated) context only.
 
         Same ownership-basis note as get_net_assets_ifrs_total_by_suffix
-        above: fills net_assets_total (incl. NCI), which can legitimately
-        trip identity:equity_ratio~net_assets/total_assets against the
-        owners-only equity_ratio element."""
+        above: fills net_assets_total (incl. NCI); net_assets_owners stays
+        honest-None on these rows, so the owners-basis equity-ratio identity
+        (identity:equity_ratio~net_assets_owners/total_assets) SKIPS rather
+        than annotating a false mismatch against the owners-only
+        equity_ratio element."""
         for row in match_element_by_suffix(
             csv_files,
             'EquityIncludingPortionAttributableToNonControllingInterestUSGAAPSummaryOfBusinessResults',
