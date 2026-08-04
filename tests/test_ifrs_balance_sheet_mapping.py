@@ -71,7 +71,7 @@ def test_ifrs_summary_bps_still_reads_per_share_element():
 
 # --- net_assets: IFRS/US-GAAP total-equity fallback (0.8.0, C14 gate) ---
 #
-# Corpus survey of real filings (2026-08-01): 9 IFRS + 23 US-GAAP securities_reports
+# Corpus survey of real filings (2026-08-01): 9 IFRS + 23 US-GAAP securities-report filings
 # rows had net_assets NULL despite the existing net_assets_ifrs_summary /
 # net_assets_usgaap_summary tiers (EquityAttributableToOwnersOfParent...,
 # owners-of-parent only). These filers' 経営指標等 highlight table discloses
