@@ -87,8 +87,8 @@ ELEMENT_MAP = {
     'net_income_owners_fs': 'jppfs_cor:ProfitLossAttributableToOwnersOfParent',
     'net_assets_owners_ifrs_fs': 'jpigp_cor:EquityAttributableToOwnersOfParentIFRS',
     # FS-level IFRS owners profit -- mirrors net_assets_owners_ifrs_fs's
-    # equity sibling. Census: present in 89.1% of IFRS securities_reports
-    # rows (項目名 親会社の所有者、当期利益). Some filers (e.g. HOYA) tag this
+    # equity sibling. Census: present in 89.1% of IFRS securities-report filings
+    # (項目名 親会社の所有者、当期利益). Some filers (e.g. HOYA) tag this
     # FS-level element but not the *_ifrs_summary one, so it is a real,
     # non-redundant recovery tier, not a confirmation-only fallback.
     'net_income_owners_ifrs_fs': 'jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS',
