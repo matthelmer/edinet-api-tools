@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Breaking
+
+- **`SecuritiesReport.net_assets` / `net_income` / `prior_net_income` split by ownership basis.** Any filing that consolidates a not-fully-owned subsidiary carries two distinct figures — one attributable to the parent company's own shareholders, one including the non-controlling interests' (minority interests') share — and the old single-field names silently picked one or the other depending on accounting standard and what the filer happened to tag. All three are removed. See the README's "Ownership basis" section for the full migration table.
+  - `net_assets` → `net_assets_owners` (attributable to owners of parent) and `net_assets_total` (includes non-controlling interests). `net_assets_owners` is always `None` for J-GAAP filers — Japanese GAAP never files a single owners-only net-assets element; the filed components ship instead, below.
+  - `net_income` → `net_income_owners` and `net_income_total`. `net_income_total` is structurally `None` for nearly all US-GAAP filers — no total-basis element exists in that taxonomy tier.
+  - `prior_net_income` → `prior_net_income_owners` / `prior_net_income_total`, same split, read from the prior-year XBRL context.
+  - Three new filed-fact fields ship the J-GAAP balance-sheet components directly instead of requiring anyone to reconstruct them: `shareholders_equity` (株主資本), `valuation_translation_adjustments` (評価換算差額等), `non_controlling_interests` (非支配株主持分 / NCI). None are summed to derive `net_assets_owners` — component facts stay components.
+  - **Tombstones, not silent breakage.** Reading `report.net_assets`, `report.net_income`, or `report.prior_net_income` raises `AttributeError` naming the replacement field(s) and which ownership basis each carries. Constructing a `SecuritiesReport` with any of the three as a keyword argument raises `TypeError` (the dataclass rejects unknown fields for free).
+  - **The equity-ratio identity check is now scoped to the correct ownership basis per standard**, rather than comparing an owners-only ratio against a mismatched-basis net-assets figure: IFRS/US-GAAP check `equity_ratio` against `net_assets_owners`; J-GAAP checks it against `shareholders_equity + valuation_translation_adjustments` (an in-check-only sum, never shipped as data). There is deliberately no `owners <= total` rule anywhere: a subsidiary's minority shareholders can themselves post a loss, so a filer's owners-attributable figure can legitimately exceed its total-including-non-controlling-interests figure. Both directions are pinned on a real-filing counterexample in the new golden-fixture panel (Tests, below).
+  - Verified against a full-corpus re-parse across 36,686 real filings: extracted figures reconcile with issuer-stated ratios within tolerance for 99.99% of Japan-GAAP annual reports (30,338/30,340), externally verified against issuer publications for an 8-company fixture panel spanning J-GAAP, IFRS, and US-GAAP.
+
 ### Added
 
 - Extraction validation: typed numeric fields are checked against structural
@@ -18,17 +29,22 @@
 - Securities brokers' operating revenue (営業収益) now populates net_sales; previously None for broker-ordinance filers.
 - IFRS filers tagging operating profit under filer-custom namespaces now populate operating_income; financial-sector revenue and bank-profit elements are deliberately not mapped (different concepts).
 - IFRS and US-GAAP filers now populate net assets per share (IFRS via the per-share equity element previously exposed only as ifrs_summary_bps; US-GAAP via an alternate stockholders-equity-per-share element).
-- IFRS and US-GAAP filers whose highlight table discloses only a single combined equity line (no owners-of-parent / non-controlling-interest split) now populate net assets via the total-equity element instead of returning None. The recovered values are total equity (including non-controlling interests) where the owners-only element is absent, so the equity-ratio identity check can now legitimately annotate on these rows (a real owners-only-vs-total grain gap, not a bug).
+- IFRS and US-GAAP filers whose highlight table discloses only a single combined equity line (no owners-of-parent / non-controlling-interest split) now populate `net_assets_total` via the total-equity element instead of returning None. `net_assets_owners` correctly stays None for these rows — the filing simply doesn't tag an owners-only figure — so the owners-basis equity-ratio identity check now skips them instead of annotating a false ownership-basis mismatch.
 - Tender-offer family: the leading 【対象者名】 form label is stripped from target company names.
 - **Company search now matches across character widths.** Full-width Latin and digit queries (ＱＰＳ, ＫＥＹＥＮＣＥ — what Japanese IMEs naturally produce) and half-width katakana returned zero results from `search_companies` and `resolve_company_identifier`, because the search compared raw lowercased strings while catalog names mix widths (三菱ＵＦＪ carries full-width ＵＦＪ). Queries and index keys are now width-normalized, matching the behavior `search_entities` already had.
 - **The company-not-found error now suggests a function that exists.** The message pointed at `search_companies()` / `get_supported_companies()`, which were removed from the package surface in 0.2.0; it now points at `search_entities()`.
 
 ### Removed
 
-- **pandas (and transitively numpy) as dependencies.** TSV parsing now uses the standard library's `csv` module. No behavior change; installation footprint drops accordingly.
+- **pandas (and transitively numpy) as dependencies** (suggested by Ben Allen). TSV parsing now uses the standard library's `csv` module. No behavior change; installation footprint drops accordingly.
 - **The legacy `EdinetClient` class**, deprecated since 0.2.0. Use the module-level functions instead: `edinet_tools.configure()`, `edinet_tools.documents()`, `entity.documents()`, and `doc.fetch()` / `doc.parse()`. The migration table in the 0.2.0 notes still applies.
 - **The deprecated boolean shims** retired in the 0.6.1 fact-shaped API transition: `Entity.is_listed`, `Entity.is_fund_issuer`, `EntityClassifier.is_listed()` (use `entity_type` / `get_entity_type()` — an `EntityType` enum that preserves the unknown case), `TreasuryStockReport.has_board_authorization` / `has_shareholder_authorization` (read the `by_board_meeting` / `by_shareholders_meeting` text blocks directly), and `utils.process_zip_directory()` (use `extract_csv_from_zip` / `extract_csv_to_disk`).
 - **The dead `[analysis]` install extra.** `pip install edinet-tools[analysis]` pulled in llm, pydantic, matplotlib, and plotly for nothing — the analysis module was removed in 0.4.1. The unused LLM config block went with it, so importing the package without an LLM API key no longer logs a spurious "LLM analysis disabled" warning.
+
+### Tests
+
+- **Eight-company golden-fixture panel for the ownership-basis split** (Toyota, ITOCHU, HOYA, Kansai Paint, Shimamura, Horii Food Service, Shiga Bank, Komatsu) — J-GAAP, IFRS, and US-GAAP; mega-cap and small-cap; with and without non-controlling interests; a financial-sector filer; and HOYA as the owners-exceeds-total counterexample. Every figure cross-checked to the yen against the issuer's own published results, on both ownership bases where both are published.
+- Test count: 836 → 908 (4 xfailed).
 
 ## v0.7.1 — 2026-06-12
 

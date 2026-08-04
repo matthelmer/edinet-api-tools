@@ -123,12 +123,20 @@ report.segments             # list[SegmentRow] — per-segment metrics
 # Balance-sheet debt detail (J-GAAP): short_term_loans_payable,
 # long_term_loans_payable, bonds_payable, current_portion_long_term_loans_payable
 # IFRS reports combined bonds-and-borrowings or borrowings-only lines with no
-# clean mapping onto the J-GAAP fields above — two grains get two names, never
-# coerced onto each other:
+# clean mapping onto the J-GAAP fields above — two distinct concepts get two
+# field names, never coerced onto each other:
 report.bonds_and_borrowings_current_ifrs     # 社債及び借入金, current
 report.bonds_and_borrowings_noncurrent_ifrs  # 社債及び借入金, non-current
 report.borrowings_current_ifrs               # 借入金, current
 report.borrowings_noncurrent_ifrs            # 借入金, non-current
+
+# Ownership-basis split (v0.8.0+, see "Ownership basis" below): every
+# equity/profit figure that could include non-controlling interests ships
+# as an explicit owners-only / total pair, never a single ambiguous field.
+report.net_income_owners  # 親会社株主に帰属する当期純利益 — attributable to owners of parent
+report.net_income_total   # includes non-controlling interests' share
+report.net_assets_total   # 純資産 — includes non-controlling interests
+report.net_assets_owners  # equity attributable to owners of parent (always None for J-GAAP — see below)
 
 # Large Shareholding Report
 report.filer_name
@@ -147,6 +155,65 @@ report.raw_fields   # All XBRL elements by element ID
 report.text_blocks  # Narrative text block content
 ```
 
+### Ownership basis: owners-only vs. total
+
+Consolidated financial statements sometimes include subsidiaries that
+aren't 100% owned — outside investors hold a stake directly in the
+subsidiary, not in the parent company. Accounting rules (Japanese GAAP,
+IFRS, and US-GAAP alike) call that outside stake a **non-controlling
+interest** (NCI; 非支配株主持分, sometimes "minority interest"). Because of
+that, a single "net income" or "net assets" figure is ambiguous on its
+own — does it include the outside investors' share, or only the piece
+that belongs to the parent company's own shareholders?
+
+edinet-tools never picks one silently. Every field where this is
+ambiguous ships as an explicit pair:
+
+- **`*_owners`** — attributable to the owners of the parent (親会社株主に帰属する /
+  the IFRS and US-GAAP "attributable to [Company]" line). This is
+  normally the headline figure in an earnings release, and the number
+  EPS is computed from.
+- **`*_total`** — includes the non-controlling interests' share too.
+
+The two usually move together, but don't have to: if a subsidiary's
+minority shareholders happen to lose money in a period, the parent's
+owners-only figure can come out *higher* than the total-including-everyone
+figure. That's a real, correctly-filed result, not a bug — so
+edinet-tools never assumes `owners <= total` or the reverse. It ships
+both numbers exactly as filed and leaves the comparison to you.
+
+#### Fields
+
+| Field | Meaning | Notes |
+|---|---|---|
+| `net_assets_owners` | Equity attributable to owners of parent | **J-GAAP: always `None`** — Japanese GAAP never files this as a single element. The filed components are `shareholders_equity` + `valuation_translation_adjustments` (below). IFRS and US-GAAP filers populate it directly. |
+| `net_assets_total` | Net assets including non-controlling interests (純資産) | Filed for all three standards. |
+| `net_income_owners` | Profit attributable to owners of parent (親会社株主に帰属する当期純利益) | Filed for all three standards. |
+| `net_income_total` | Profit including non-controlling interests' share | **US-GAAP: structurally `None`** for nearly all filers — no total-basis net-income element exists in that taxonomy tier. |
+| `prior_net_income_owners` / `prior_net_income_total` | Same split, prior fiscal year | Same per-standard routing, read from the prior-year XBRL context. |
+| `shareholders_equity` | 株主資本 — filed J-GAAP component | J-GAAP only. Never summed into `net_assets_owners` — it's a fact as filed, not a derived aggregate. |
+| `valuation_translation_adjustments` | 評価換算差額等 — filed J-GAAP component | J-GAAP only, same rule as above. |
+| `non_controlling_interests` | 非支配株主持分 (NCI) | Filed for all three standards; `None` when a filer has no minority-owned subsidiaries. |
+
+If you need an owners-only equity figure for a J-GAAP filer, compute it
+yourself from the two filed components
+(`shareholders_equity + valuation_translation_adjustments`) — edinet-tools
+ships the facts as filed and leaves that arithmetic to you.
+
+#### Migrating from < 0.8.0
+
+`net_assets`, `net_income`, and `prior_net_income` were removed in 0.8.0.
+Reading them raises `AttributeError` naming the replacement field(s);
+constructing a `SecuritiesReport` with them as keyword arguments raises
+`TypeError`. Fix your code from this table:
+
+| Old field | Standard | What the old value actually was | Replacement |
+|---|---|---|---|
+| `net_assets` | J-GAAP | Always total-basis (incl. NCI) | `net_assets_total` |
+| `net_assets` | IFRS / US-GAAP | Owners-basis when the filing tagged it; silently fell back to total-basis otherwise | `net_assets_owners`, falling back to `net_assets_total` for the old fallback behavior |
+| `net_income` | J-GAAP / IFRS / US-GAAP | Owners-basis for almost every filer; silently fell back to total-basis for the minority of filers whose owners-basis element was absent | `net_income_owners`, falling back to `net_income_total` for the old fallback behavior (`net_income_total` is `None` for nearly all US-GAAP filers) |
+| `prior_net_income` | all | Same mixed routing as `net_income`, prior-year context | `prior_net_income_owners` / `prior_net_income_total`, same fallback pattern |
+
 ### Validation
 
 Typed numeric fields are checked at parse time against structural rules —
@@ -160,8 +227,9 @@ what a value can possibly be, never what is typical. Findings land in
   `raw_fields`.
 - **Identities annotate.** Cross-field accounting checks (e.g. equity ratio
   vs net assets / total assets) cannot tell which operand is wrong — and the
-  filing is often internally consistent under a different grain — so a
-  mismatch is recorded as a flag but no field is altered.
+  filing is often internally consistent under a different accounting
+  convention than the one being checked — so a mismatch is recorded as a
+  flag but no field is altered.
 
 The library never invents a number a document didn't state, and never
 suppresses a stated number because it disagrees with a computed one.
@@ -195,7 +263,7 @@ Or use a `.env` file. Entity lookup and parsing work without an API key — only
 ## Testing
 
 ```bash
-pytest tests/ -v  # 830+ tests
+pytest tests/ -v  # 900+ tests
 ```
 
 ## Links
