@@ -27,7 +27,6 @@ classifiers = [
 keywords = ["finance", "japan", "edinet", "financial-data", "xbrl", "corporate-filings"]
 
 dependencies = [
-    "python-dateutil>=2.8.0",
     "chardet>=5.0.0",
     "python-dotenv>=1.0.0",
 ]

@@ -10,7 +10,7 @@ IMPORTANT: Income statement data is year-to-date cumulative, not quarterly-only.
 """
 from dataclasses import dataclass
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Optional
 
 from .base import ParsedReport
@@ -180,10 +180,17 @@ def _derive_quarter_number(filing_date: date, fiscal_year_end: date) -> Optional
     Returns None if filing date doesn't match expected quarterly timing
     (e.g., annual reports filed after fiscal year end).
     """
-    from dateutil.relativedelta import relativedelta
-
-    # Calculate fiscal year start (day after prior year end)
-    fiscal_year_start = fiscal_year_end - relativedelta(years=1) + relativedelta(days=1)
+    # Calculate fiscal year start (day after prior year end).
+    # Subtract one year, keeping month/day; Feb 29 clamps to Feb 28 when the
+    # prior year isn't a leap year (date.replace raises ValueError there),
+    # matching dateutil.relativedelta's default clamping behavior. date +
+    # timedelta(days=1) handles month/year rollover for the "+1 day" step
+    # without needing a calendar-aware library.
+    try:
+        prior_year_end = fiscal_year_end.replace(year=fiscal_year_end.year - 1)
+    except ValueError:
+        prior_year_end = fiscal_year_end.replace(year=fiscal_year_end.year - 1, day=28)
+    fiscal_year_start = prior_year_end + timedelta(days=1)
 
     # Calculate months from fiscal year start to filing date
     months_from_start = (filing_date.year - fiscal_year_start.year) * 12 + \
