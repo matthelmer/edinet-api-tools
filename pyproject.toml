@@ -28,7 +28,6 @@ keywords = ["finance", "japan", "edinet", "financial-data", "xbrl", "corporate-f
 
 dependencies = [
     "chardet>=5.0.0",
-    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

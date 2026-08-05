@@ -284,7 +284,16 @@ Get a free API key from [EDINET](https://disclosure2.edinet-fsa.go.jp/) ([video 
 export EDINET_API_KEY=your_key_here
 ```
 
-Or use a `.env` file. Entity lookup and parsing work without an API key — only document fetching requires one.
+edinet-tools reads `EDINET_API_KEY` from the process environment only — it does not load `.env` files itself. Use `python-dotenv` in YOUR app if you like:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()
+
+import edinet_tools  # EDINET_API_KEY is now set
+```
+
+Entity lookup and parsing work without an API key — only document fetching requires one.
 
 ## Testing
 

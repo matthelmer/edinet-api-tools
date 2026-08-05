@@ -1,17 +1,12 @@
 # config.py
 import os
 import logging
-from dotenv import load_dotenv
 
-# Load environment variables from project root
-project_root = os.path.dirname(os.path.dirname(__file__))  # Go up one level from edinet_tools/
-dotenv_path = os.path.join(project_root, '.env')
-if os.path.exists(dotenv_path):
-    load_dotenv(dotenv_path)
-else:
-    # Try loading from current working directory as fallback
-    load_dotenv()
-
+# edinet-tools reads EDINET_API_KEY from the process environment only. It
+# does not load .env files itself — a library shouldn't mutate process env
+# as an import side effect. If you keep your key in a .env file, load it in
+# YOUR application before importing edinet_tools (e.g. via `python-dotenv`:
+# `from dotenv import load_dotenv; load_dotenv()`).
 EDINET_API_KEY = os.environ.get('EDINET_API_KEY')
 
 if not EDINET_API_KEY:
