@@ -16,16 +16,15 @@ from typing import Any, Optional
 
 from .base import ParsedReport
 from .extraction import (
+    Tier,
+    resolve_tiers,
+    get_dei,
     extract_csv_from_zip,
     extract_value,
     categorize_elements,
-    get_context_patterns,
-    extract_financial,
     parse_percentage,
-    parse_int,
     parse_date,
     coerce_numeric_value,
-    match_element_by_suffix,
 )
 from .validation import Bound, Identity, IDENTITY_TOLERANCE, apply_validation
 
@@ -517,12 +516,352 @@ class SecuritiesReport(ParsedReport):
         return f"SecuritiesReport(filer='{filer}', fy_end={fy})"
 
 
-def _coalesce(*values):
-    """Return the first non-None value."""
-    for v in values:
-        if v is not None:
-            return v
-    return None
+def _chain(key: str):
+    """ELEMENT_MAP[key] plus its IFRS_FALLBACK_MAP fallback chain as ONE
+    tier's element tuple — the declarative form of extract_financial's
+    primary-plus-fallbacks call. The chain is resolved pattern-major within
+    the tier (a fallback element at the preferred context beats the primary
+    at a weaker context), exactly the pre-migration behavior."""
+    element_id = ELEMENT_MAP[key]
+    fallbacks = IFRS_FALLBACK_MAP.get(element_id)
+    if not fallbacks:
+        return element_id
+    if isinstance(fallbacks, str):
+        fallbacks = [fallbacks]
+    return (element_id, *fallbacks)
+
+
+# ---------------------------------------------------------------------------
+# Per-field tier tables (v0.8.0 stage-5 migration)
+#
+# Tier order IS the pre-migration waterfall order — proven equivalent by the
+# full-corpus old-vs-new re-parse — EXCEPT the ratified C1 per-standard
+# scoping tiers marked "C1" below: IFRS-transition dual-table filings carry
+# BOTH a legacy J-GAAP highlights table and an IFRS one at the same
+# contexts, and the standard-agnostic order served the J-GAAP figures on
+# IFRS rows for exactly three fields (equity_ratio / total_assets /
+# net_assets_total). IFRS filers now try the IFRS-specific elements first;
+# the neutral/legacy tiers still serve every other standard unchanged, and
+# still serve IFRS rows that carry no IFRS-specific value (honest fallback).
+# ---------------------------------------------------------------------------
+
+# Duration-context fields. The same tables serve the current-year and
+# prior-year reads (the period is a resolve_tiers argument).
+_DURATION_TIERS = {
+    # Revenue: J-GAAP summary -> IFRS summary -> US-GAAP summary -> bank/
+    # insurer 経常収益 -> broker 営業収益 (summary then FS) -> custom-namespace
+    # IFRS suffix hatch -> securities-firm FS -> FS NetSales (+ IFRS chain).
+    'net_sales': (
+        Tier(_chain('net_sales_summary')),
+        Tier(_chain('net_sales_ifrs_summary')),
+        Tier(_chain('net_sales_usgaap_summary')),
+        Tier(_chain('ordinary_revenue_summary')),
+        Tier(_chain('operating_revenue1_summary')),
+        Tier(_chain('net_sales_broker_fs')),
+        # Custom-namespace consolidated IFRS revenue (e.g. Toyota's
+        # jpcrp030000-asr_E02144-000:SalesRevenuesIFRS) — bare context only,
+        # so the parent figure can never win.
+        Tier(('SalesRevenuesIFRS', 'TotalNetRevenuesIFRS',
+              'RevenueIFRSSummaryOfBusinessResults'), suffix_match=True),
+        Tier(_chain('operating_revenue_fs')),
+        Tier(_chain('net_sales_fs')),
+    ),
+    # IFRS/US-GAAP filers NEVER fall back to the parent J-GAAP
+    # jppfs_cor:OperatingIncome (the 0.7.1 leak class) — the last tier's
+    # exclude_standards is that gate. DEI-missing filers keep it, with its
+    # jpigp safety-net fallback from IFRS_FALLBACK_MAP. Filers with no
+    # operating-profit concept (trading houses, US-GAAP TextBlock-only)
+    # resolve to honest None.
+    'operating_income': (
+        Tier(_chain('operating_income_ifrs_summary')),
+        Tier(_chain('operating_income_ifrs_fs')),
+        # Custom-namespace IFRS/US-GAAP operating profit (e.g. JXTG's
+        # filer-local namespace) — bare context only.
+        Tier(('OperatingProfitLossIFRSSummaryOfBusinessResults',
+              'OperatingIncomeIFRSSummaryOfBusinessResults',
+              'OperatingIncomeLossIFRSSummaryOfBusinessResults',
+              'OperatingProfitIFRSSummaryOfBusinessResults'),
+             suffix_match=True),
+        Tier(_chain('operating_income_usgaap_summary')),
+        Tier(_chain('operating_income_fs'),
+             exclude_standards=('IFRS', 'US GAAP')),
+    ),
+    'ordinary_income': (
+        Tier(_chain('ordinary_income_summary')),
+        Tier(_chain('ordinary_income_usgaap_summary')),
+        Tier(_chain('ordinary_income_fs')),
+    ),
+    # net_income split by ownership basis (v0.8.0+): owners-basis sources
+    # fill ONLY net_income_owners; the single total-basis source (jppfs
+    # ProfitLoss + its IFRS chain) fills ONLY net_income_total. No
+    # cross-basis coalescing — net_income_total stays honest-None for
+    # US-GAAP (no total-basis element exists in that taxonomy tier).
+    'net_income_owners': (
+        Tier(_chain('net_income_summary')),
+        Tier(_chain('net_income_ifrs_summary')),
+        Tier(_chain('net_income_owners_ifrs_fs')),
+        Tier(_chain('net_income_usgaap_summary')),
+        Tier(_chain('net_income_owners_fs')),
+    ),
+    'net_income_total': (
+        Tier(_chain('net_income_fs')),
+    ),
+    # Cash flow: J-GAAP summary -> IFRS summary -> US-GAAP summary ->
+    # J-GAAP FS statement -> IFRS FS statement.
+    'operating_cash_flow': (
+        Tier(_chain('operating_cf_summary')),
+        Tier(_chain('operating_cf_ifrs_summary')),
+        Tier(_chain('operating_cf_usgaap_summary')),
+        Tier(_chain('operating_cf_cfs')),
+        Tier(_chain('operating_cf_ifrs')),
+    ),
+    'investing_cash_flow': (
+        Tier(_chain('investing_cf_summary')),
+        Tier(_chain('investing_cf_ifrs_summary')),
+        Tier(_chain('investing_cf_usgaap_summary')),
+        Tier(_chain('investing_cf_cfs')),
+        Tier(_chain('investing_cf_ifrs')),
+    ),
+    'financing_cash_flow': (
+        Tier(_chain('financing_cf_summary')),
+        Tier(_chain('financing_cf_ifrs_summary')),
+        Tier(_chain('financing_cf_usgaap_summary')),
+        Tier(_chain('financing_cf_cfs')),
+        Tier(_chain('financing_cf_ifrs')),
+    ),
+    # Income detail.
+    'income_before_taxes': (Tier(_chain('income_before_taxes')),),
+    'non_operating_income': (Tier(_chain('non_operating_income')),),
+    'non_operating_expenses': (Tier(_chain('non_operating_expenses')),),
+    'income_taxes': (Tier(_chain('income_taxes')),),
+    # Cash flow detail.
+    'depreciation_amortization': (Tier(_chain('depreciation_amortization_cfo')),),
+}
+
+# The five duration fields that also get a Prior1YearDuration read.
+_PRIOR_YEAR_FIELDS = ('net_sales', 'operating_income', 'ordinary_income',
+                      'net_income_owners', 'net_income_total')
+
+# Instant-context fields (current year only).
+_INSTANT_TIERS = {
+    'total_assets': (
+        # C1: IFRS filers read the IFRS highlights table first.
+        Tier(ELEMENT_MAP['total_assets_ifrs_summary'], standards=('IFRS',)),
+        Tier(_chain('total_assets_summary')),
+        Tier(_chain('total_assets_ifrs_summary')),
+        Tier(_chain('total_assets_usgaap_summary')),
+        Tier(_chain('total_assets_fs')),
+    ),
+    # net_assets split by ownership basis (v0.8.0+): owners-basis sources
+    # fill ONLY net_assets_owners — J-GAAP has no owners-only net-assets
+    # element, so it stays honest-None for J-GAAP filers (never derived
+    # from the component fields). Total-basis sources fill ONLY
+    # net_assets_total. No cross-basis coalescing anywhere.
+    'net_assets_owners': (
+        Tier(_chain('net_assets_ifrs_summary')),
+        Tier(_chain('net_assets_owners_ifrs_fs')),
+        Tier(_chain('net_assets_usgaap_summary')),
+    ),
+    'net_assets_total': (
+        # C1: IFRS filers read the IFRS-specific total-equity sources first
+        # (summary-level combined-equity hatch, then FS-level EquityIFRS).
+        Tier('TotalEquityIFRSSummaryOfBusinessResults',
+             standards=('IFRS',), suffix_match=True),
+        Tier('jpigp_cor:EquityIFRS', standards=('IFRS',)),
+        Tier(_chain('net_assets_summary')),
+        # Combined-equity highlights line for filers with no owners/NCI
+        # split (e.g. TotalEquityIFRS... in a filer-local namespace) —
+        # TotalEquity is the correct IFRS analog of J-GAAP NetAssets (both
+        # include NCI). net_assets_owners stays honest-None on such rows,
+        # so the owners-basis equity-ratio identity SKIPS them.
+        Tier('TotalEquityIFRSSummaryOfBusinessResults', suffix_match=True),
+        # US-GAAP combined total (純資産額（US GAAP）) — after the owners-only
+        # net_assets_usgaap_summary tier in net_assets_owners.
+        Tier('EquityIncludingPortionAttributableToNonControllingInterest'
+             'USGAAPSummaryOfBusinessResults', suffix_match=True),
+        Tier(_chain('net_assets_fs')),
+    ),
+    'total_liabilities': (Tier(_chain('total_liabilities_fs')),),
+    # Balance-sheet equity components (J-GAAP FS-level;
+    # non_controlling_interests also fed by its IFRS element via the
+    # chain). Facts as filed — never summed to derive the net-assets
+    # fields.
+    'shareholders_equity': (Tier(_chain('shareholders_equity')),),
+    'valuation_translation_adjustments': (
+        Tier(_chain('valuation_translation_adjustments')),),
+    'non_controlling_interests': (Tier(_chain('non_controlling_interests')),),
+    # Debt details.
+    'short_term_loans_payable': (Tier(_chain('short_term_loans_payable')),),
+    'long_term_loans_payable': (Tier(_chain('long_term_loans_payable')),),
+    'bonds_payable': (Tier(_chain('bonds_payable')),),
+    'current_portion_long_term_loans_payable': (
+        Tier(_chain('current_portion_long_term_loans_payable')),),
+    'lease_obligations_current': (Tier(_chain('lease_obligations_current')),),
+    'lease_obligations_noncurrent': (
+        Tier(_chain('lease_obligations_noncurrent')),),
+    'commercial_paper': (Tier(_chain('commercial_paper')),),
+    # IFRS balance-sheet debt (v0.8.0+): new concepts, never fallbacks for
+    # the J-GAAP fields — distinct line items get distinct fields.
+    'bonds_and_borrowings_current_ifrs': (
+        Tier(_chain('bonds_and_borrowings_current_ifrs')),),
+    'bonds_and_borrowings_noncurrent_ifrs': (
+        Tier(_chain('bonds_and_borrowings_noncurrent_ifrs')),),
+    'borrowings_current_ifrs': (Tier(_chain('borrowings_current_ifrs')),),
+    'borrowings_noncurrent_ifrs': (Tier(_chain('borrowings_noncurrent_ifrs')),),
+    # Employment.
+    'num_employees': (Tier(_chain('num_employees')),),
+    # Balance sheet detail.
+    'cash_and_deposits': (Tier(_chain('cash_and_deposits')),),
+    'current_assets': (Tier(_chain('current_assets')),),
+    'noncurrent_assets': (Tier(_chain('noncurrent_assets')),),
+    'property_plant_equipment': (Tier(_chain('property_plant_equipment')),),
+    'deferred_tax_assets': (Tier(_chain('deferred_tax_assets')),),
+    'current_liabilities': (Tier(_chain('current_liabilities')),),
+    'accounts_payable_other': (Tier(_chain('accounts_payable_other')),),
+    'retained_earnings': (Tier(_chain('retained_earnings')),),
+}
+
+# Per-share / ratio tier tables ('string' mode — the caller parses).
+_NAV_TIERS = (
+    Tier(ELEMENT_MAP['net_assets_per_share']),
+    # bps_ifrs's element name is a taxonomy misnomer ("EquityToAssetRatio")
+    # but its label is 1株当たり親会社所有者帰属持分 — per-share equity in JPY,
+    # the same concept as net_assets_per_share for IFRS filers.
+    Tier(ELEMENT_MAP['bps_ifrs']),
+    Tier(ELEMENT_MAP['net_assets_per_share_usgaap']),
+    # US-GAAP custom-namespace variant (e.g. Sony's per-filer namespace) —
+    # suffix tiers read the bare period only, so a parent figure can never
+    # win even for non-consolidated filers.
+    Tier('StockholdersEquityPerShareOfCommonStockUSGAAP'
+         'SummaryOfBusinessResults', suffix_match=True),
+)
+_EPS_TIERS = (
+    Tier(ELEMENT_MAP['earnings_per_share']),
+    Tier(ELEMENT_MAP['earnings_per_share_ifrs']),
+    Tier(ELEMENT_MAP['earnings_per_share_usgaap']),
+)
+# C1 preference stage for equity_ratio: coerce semantics, so a
+# marker-valued IFRS ratio falls through to the legacy scan instead of
+# blanking the field.
+_EQUITY_RATIO_IFRS_FIRST = (
+    Tier(ELEMENT_MAP['equity_ratio_ifrs'], standards=('IFRS',)),
+)
+# The legacy scan keeps its historical first-non-empty-raw-string behavior
+# (coerce=False): a null-marker J-GAAP ratio still stops the scan and
+# parses to None — bit-identical to pre-migration for non-IFRS filers.
+# Note: EquityToAssetRatioUSGAAPSummaryOfBusinessResults IS a genuine ratio
+# (unlike its IFRS taxonomy namesake, which is the BPS misnomer above).
+_EQUITY_RATIO_LEGACY = (
+    Tier(ELEMENT_MAP['equity_ratio']),
+    Tier(ELEMENT_MAP['equity_ratio_ifrs']),
+    Tier(ELEMENT_MAP['equity_ratio_usgaap']),
+)
+_ROE_TIERS = (
+    Tier(ELEMENT_MAP['roe']),
+    Tier(ELEMENT_MAP['roe_ifrs']),
+    Tier(ELEMENT_MAP['roe_usgaap']),
+)
+
+
+# ---------------------------------------------------------------------------
+# Extraction blocks (module-level, independently testable)
+# ---------------------------------------------------------------------------
+
+def _extract_dei_block(csv_files) -> dict:
+    """DEI identification facts (FilingDateInstant context)."""
+    security_code = get_dei(csv_files, ELEMENT_MAP, 'security_code')
+    is_consolidated_raw = get_dei(csv_files, ELEMENT_MAP, 'is_consolidated')
+
+    ticker = None
+    if security_code and security_code != '－':
+        ticker = f"{security_code.strip()[:4]}.T"
+
+    return {
+        'filer_name': get_dei(csv_files, ELEMENT_MAP, 'company_name'),
+        'filer_name_en': get_dei(csv_files, ELEMENT_MAP, 'company_name_en'),
+        'filer_edinet_code': get_dei(csv_files, ELEMENT_MAP, 'edinet_code'),
+        'ticker': ticker,
+        'accounting_standard': get_dei(csv_files, ELEMENT_MAP,
+                                       'accounting_standard'),
+        'is_consolidated': ((is_consolidated_raw == 'true')
+                            if is_consolidated_raw else None),
+        'fiscal_year_start': parse_date(
+            get_dei(csv_files, ELEMENT_MAP, 'fiscal_year_start')),
+        'fiscal_year_end': parse_date(
+            get_dei(csv_files, ELEMENT_MAP, 'fiscal_year_end')),
+    }
+
+
+def _extract_financials(csv_files, standard, is_consolidated) -> dict:
+    """Every integer financial field, resolved from the tier tables."""
+    def fin(tiers, period):
+        hit = resolve_tiers(csv_files, tiers, standard=standard,
+                            period=period, is_consolidated=is_consolidated)
+        return hit.value if hit else None
+
+    out = {}
+    for field_name, tiers in _DURATION_TIERS.items():
+        out[field_name] = fin(tiers, 'CurrentYearDuration')
+    for field_name in _PRIOR_YEAR_FIELDS:
+        out[f'prior_{field_name}'] = fin(_DURATION_TIERS[field_name],
+                                         'Prior1YearDuration')
+    for field_name, tiers in _INSTANT_TIERS.items():
+        out[field_name] = fin(tiers, 'CurrentYearInstant')
+    return out
+
+
+def _extract_per_share_block(csv_files, standard, is_consolidated):
+    """Per-share metrics, ratios, and the independent IFRS summary trio.
+    Returns (values, provenance) — provenance feeds apply_validation."""
+    def string_hit(tiers, period, coerce):
+        return resolve_tiers(csv_files, tiers, standard=standard,
+                             period=period, is_consolidated=is_consolidated,
+                             mode='string', coerce=coerce)
+
+    values = {}
+    provenance = {}
+
+    nav_hit = string_hit(_NAV_TIERS, 'CurrentYearInstant', True)
+    values['net_assets_per_share'] = Decimal(nav_hit.value) if nav_hit else None
+
+    eps_hit = string_hit(_EPS_TIERS, 'CurrentYearDuration', True)
+    values['earnings_per_share'] = Decimal(eps_hit.value) if eps_hit else None
+
+    # equity_ratio: C1 IFRS-preference stage (coerce), then the legacy
+    # first-non-empty-raw-string scan (see the tier-table comments).
+    er_hit = string_hit(_EQUITY_RATIO_IFRS_FIRST, 'CurrentYearInstant', True)
+    if er_hit is None:
+        er_hit = string_hit(_EQUITY_RATIO_LEGACY, 'CurrentYearInstant', False)
+    if er_hit is not None:
+        provenance['equity_ratio'] = er_hit.element_id
+    values['equity_ratio'] = parse_percentage(er_hit.value) if er_hit else None
+
+    roe_hit = string_hit(_ROE_TIERS, 'CurrentYearDuration', False)
+    values['roe'] = parse_percentage(roe_hit.value) if roe_hit else None
+
+    # IFRS summary CurrentYear metrics (v0.7.1+): single fixed-bare-context
+    # elements, not waterfalls — extracted independently of the tier tables
+    # so consumers can distinguish IFRS-summary truth from waterfall-picked
+    # values. coerce_numeric_value() keeps null markers away from Decimal().
+    ifrs_eps_str = coerce_numeric_value(extract_value(
+        csv_files, ELEMENT_MAP['earnings_per_share_ifrs'],
+        context_patterns=['CurrentYearDuration'],
+    ))
+    values['ifrs_summary_basic_eps'] = Decimal(ifrs_eps_str) if ifrs_eps_str else None
+
+    ifrs_roe_str = coerce_numeric_value(extract_value(
+        csv_files, ELEMENT_MAP['roe_ifrs'],
+        context_patterns=['CurrentYearDuration'],
+    ))
+    values['ifrs_summary_roe'] = Decimal(ifrs_roe_str) if ifrs_roe_str else None
+
+    ifrs_bps_str = coerce_numeric_value(extract_value(
+        csv_files, ELEMENT_MAP['bps_ifrs'],
+        context_patterns=['CurrentYearInstant'],
+    ))
+    values['ifrs_summary_bps'] = Decimal(ifrs_bps_str) if ifrs_bps_str else None
+
+    return values, provenance
 
 
 def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_type_code=None) -> SecuritiesReport:
@@ -557,425 +896,13 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
 
     source_files = [f['filename'] for f in csv_files]
 
-    # Helper to get DEI values
-    def get_dei(key: str) -> str | None:
-        return extract_value(csv_files, ELEMENT_MAP.get(key, ''), context_patterns=['FilingDateInstant'])
+    dei = _extract_dei_block(csv_files)
+    standard = dei['accounting_standard']
+    is_consolidated = dei['is_consolidated']
 
-    # Extract DEI elements
-    edinet_code = get_dei('edinet_code')
-    company_name = get_dei('company_name')
-    security_code = get_dei('security_code')
-    accounting_standard = get_dei('accounting_standard')
-    is_consolidated_raw = get_dei('is_consolidated')
-    is_consolidated = (is_consolidated_raw == 'true') if is_consolidated_raw else None
-
-    # Format ticker
-    ticker = None
-    if security_code and security_code != '－':
-        ticker = f"{security_code.strip()[:4]}.T"
-
-    # Extract period
-    fiscal_year_start = parse_date(get_dei('fiscal_year_start'))
-    fiscal_year_end = parse_date(get_dei('fiscal_year_end'))
-
-    # Helper for financial extraction
-    def get_fin(key: str, period: str) -> int | None:
-        element_id = ELEMENT_MAP.get(key, '')
-        if not element_id:
-            return None
-        return extract_financial(csv_files, element_id, period, is_consolidated, IFRS_FALLBACK_MAP)
-
-    def get_revenue_by_suffix(period: str) -> int | None:
-        """Consolidated IFRS revenue for custom-namespace filers (e.g. Toyota's
-        jpcrp030000-asr_E02144-000:SalesRevenuesIFRS, which no fixed element id
-        matches). Matched at the bare (consolidated) context only — the
-        *_NonConsolidatedMember rows are deliberately excluded so the parent figure
-        can never win here."""
-        for canonical in ('SalesRevenuesIFRS', 'TotalNetRevenuesIFRS',
-                          'RevenueIFRSSummaryOfBusinessResults'):
-            for row in match_element_by_suffix(csv_files, canonical):
-                if (row.get('コンテキストID', '') or '') == period:
-                    v = coerce_numeric_value(row.get('値', ''))
-                    if v:
-                        return parse_int(v)
-        return None
-
-    def get_operating_income_by_suffix(period: str) -> int | None:
-        """Consolidated IFRS/US-GAAP operating profit for custom-namespace
-        filers (e.g. JXTG Holdings' jpcrp030000-asr_E24050-000:
-        OperatingProfitLossIFRSSummaryOfBusinessResults) — fixed element ids
-        cannot match filer-local namespaces; matched at the bare
-        (consolidated) context only, so a parent figure can never win."""
-        for canonical in ('OperatingProfitLossIFRSSummaryOfBusinessResults',
-                          'OperatingIncomeIFRSSummaryOfBusinessResults',
-                          'OperatingIncomeLossIFRSSummaryOfBusinessResults',
-                          'OperatingProfitIFRSSummaryOfBusinessResults'):
-            for row in match_element_by_suffix(csv_files, canonical):
-                if (row.get('コンテキストID', '') or '') == period:
-                    v = coerce_numeric_value(row.get('値', ''))
-                    if v:
-                        return parse_int(v)
-        return None
-
-    def get_bps_usgaap_by_suffix(period: str) -> str | None:
-        """Consolidated US-GAAP net-assets-per-share for custom-namespace
-        filers (e.g. Sony's jpcrp030000-asr_E01777-000:
-        StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults)
-        — the fixed jpcrp_cor:EquityAttributableToOwnersOfParentPerShare
-        USGAAPSummaryOfBusinessResults id is absent from these filings
-        entirely; matched at the bare (consolidated) context only, so a
-        parent figure can never win. Returns the raw value string (caller
-        coerces/Decimals it), matching get_fin's contract."""
-        for row in match_element_by_suffix(
-            csv_files, 'StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults'
-        ):
-            if (row.get('コンテキストID', '') or '') == period:
-                v = coerce_numeric_value(row.get('値', ''))
-                if v:
-                    return v
-        return None
-
-    def get_net_assets_ifrs_total_by_suffix(period: str) -> int | None:
-        """Consolidated IFRS net assets INCLUDING non-controlling interest, for
-        filers whose 経営指標等 highlight table discloses only a single combined
-        equity line (no owners-of-parent / NCI split) — e.g.
-        jpcrp030000-asr_E00492-000:TotalEquityIFRSSummaryOfBusinessResults. The
-        fixed jpcrp_cor:EquityAttributableToOwnersOfParentIFRSSummaryOfBusinessResults
-        id (net_assets_ifrs_summary, tried first) is absent from these filings
-        entirely — this is a genuinely different, narrower concept (owners-of-parent
-        only) that these filers simply don't tag, not a naming variant of it.
-        TotalEquity is the correct IFRS analog of J-GAAP NetAssets (both include
-        NCI). Matched at the bare (consolidated) context only, so a parent
-        (non-consolidated) figure can never win.
-
-        Ownership-basis note (v0.8.0+ stage-4 rewire): this fills
-        net_assets_total (includes non-controlling interest); net_assets_owners
-        stays whatever net_assets_ifrs_summary independently produced (usually
-        None here, since that tier is absent on these filers) — no cross-basis
-        coalescing. Because the equity-ratio identity is now scoped per
-        ownership basis (identity:equity_ratio~net_assets_owners/total_assets,
-        IFRS/US-GAAP only), it SKIPS on these rows — net_assets_owners is
-        honest-None, not a value to compare — rather than annotating a false
-        ownership-basis mismatch. The containment identity
-        (identity:net_assets<=total_assets) still applies independently
-        against net_assets_total."""
-        for row in match_element_by_suffix(csv_files, 'TotalEquityIFRSSummaryOfBusinessResults'):
-            if (row.get('コンテキストID', '') or '') == period:
-                v = coerce_numeric_value(row.get('値', ''))
-                if v:
-                    return parse_int(v)
-        return None
-
-    def get_net_assets_usgaap_total_by_suffix(period: str) -> int | None:
-        """Consolidated US-GAAP net assets INCLUDING non-controlling interest —
-        jpcrp_cor:EquityIncludingPortionAttributableToNonControllingInterest
-        USGAAPSummaryOfBusinessResults, labeled 純資産額（US GAAP）、経営指標等
-        ("net assets amount"). Falls back after net_assets_usgaap_summary
-        (EquityAttributableToOwnersOfParent..., owners-only) for filers that
-        disclose only the combined total, no owners/NCI split. Matched by
-        suffix for parity with the other USGAAP-summary helpers (mostly
-        standard jpcrp_cor: namespace in practice, but a per-filer custom
-        namespace cannot be ruled out); bare (consolidated) context only.
-
-        Same ownership-basis note as get_net_assets_ifrs_total_by_suffix
-        above: fills net_assets_total (incl. NCI); net_assets_owners stays
-        honest-None on these rows, so the owners-basis equity-ratio identity
-        (identity:equity_ratio~net_assets_owners/total_assets) SKIPS rather
-        than annotating a false mismatch against the owners-only
-        equity_ratio element."""
-        for row in match_element_by_suffix(
-            csv_files,
-            'EquityIncludingPortionAttributableToNonControllingInterestUSGAAPSummaryOfBusinessResults',
-        ):
-            if (row.get('コンテキストID', '') or '') == period:
-                v = coerce_numeric_value(row.get('値', ''))
-                if v:
-                    return parse_int(v)
-        return None
-
-    # Try summary elements first (J-GAAP then IFRS), then fall back to FS elements
-    # FS elements have their own IFRS fallback via IFRS_FALLBACK_MAP in extract_financial()
-    net_sales = _coalesce(
-        get_fin('net_sales_summary', 'CurrentYearDuration'),
-        get_fin('net_sales_ifrs_summary', 'CurrentYearDuration'),
-        get_fin('net_sales_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('ordinary_revenue_summary', 'CurrentYearDuration'),
-        get_fin('operating_revenue1_summary', 'CurrentYearDuration'),
-        get_fin('net_sales_broker_fs', 'CurrentYearDuration'),
-        get_revenue_by_suffix('CurrentYearDuration'),
-        get_fin('operating_revenue_fs', 'CurrentYearDuration'),
-        get_fin('net_sales_fs', 'CurrentYearDuration'),
-    )
-    # IFRS/US-GAAP: try their own operating-profit elements; NEVER fall back to
-    # the parent J-GAAP jppfs_cor:OperatingIncome. No current filing is known to
-    # tag the parent figure at the bare consolidated context (scan of 2,229
-    # IFRS/US-GAAP securities reports, 2026-06), but a filing that did would win
-    # the old coalesce — this gate is the defense. Filers with no operating-profit
-    # concept (trading houses, US-GAAP TextBlock-only) -> honest None.
-    operating_income = _coalesce(
-        get_fin('operating_income_ifrs_summary', 'CurrentYearDuration'),
-        get_fin('operating_income_ifrs_fs', 'CurrentYearDuration'),
-        get_operating_income_by_suffix('CurrentYearDuration'),
-        get_fin('operating_income_usgaap_summary', 'CurrentYearDuration'),
-        None if accounting_standard in ('IFRS', 'US GAAP')
-        else get_fin('operating_income_fs', 'CurrentYearDuration'),
-    )
-    ordinary_income = _coalesce(
-        get_fin('ordinary_income_summary', 'CurrentYearDuration'),
-        get_fin('ordinary_income_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('ordinary_income_fs', 'CurrentYearDuration'),
-    )
-    # net_income split by ownership basis (v0.8.0+). Owners-basis sources
-    # (J-GAAP summary + NEW FS-level jppfs:ProfitLossAttributableToOwnersOfParent,
-    # IFRS summary + NEW FS-level jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS,
-    # US-GAAP summary) fill ONLY net_income_owners; the single total-basis
-    # source (jppfs:ProfitLoss, with its existing IFRS_FALLBACK_MAP fallback
-    # to jpigp_cor:ProfitLossIFRS) fills ONLY net_income_total. No
-    # cross-basis coalescing -- net_income_total stays honest-None for
-    # US-GAAP (no total-basis element exists in that taxonomy).
-    net_income_owners = _coalesce(
-        get_fin('net_income_summary', 'CurrentYearDuration'),
-        get_fin('net_income_ifrs_summary', 'CurrentYearDuration'),
-        get_fin('net_income_owners_ifrs_fs', 'CurrentYearDuration'),
-        get_fin('net_income_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('net_income_owners_fs', 'CurrentYearDuration'),
-    )
-    net_income_total = get_fin('net_income_fs', 'CurrentYearDuration')
-
-    # Prior year
-    prior_net_sales = _coalesce(
-        get_fin('net_sales_summary', 'Prior1YearDuration'),
-        get_fin('net_sales_ifrs_summary', 'Prior1YearDuration'),
-        get_fin('net_sales_usgaap_summary', 'Prior1YearDuration'),
-        get_fin('ordinary_revenue_summary', 'Prior1YearDuration'),
-        get_fin('operating_revenue1_summary', 'Prior1YearDuration'),
-        get_fin('net_sales_broker_fs', 'Prior1YearDuration'),
-        get_revenue_by_suffix('Prior1YearDuration'),
-        get_fin('operating_revenue_fs', 'Prior1YearDuration'),
-        get_fin('net_sales_fs', 'Prior1YearDuration'),
-    )
-    prior_operating_income = _coalesce(
-        get_fin('operating_income_ifrs_summary', 'Prior1YearDuration'),
-        get_fin('operating_income_ifrs_fs', 'Prior1YearDuration'),
-        get_operating_income_by_suffix('Prior1YearDuration'),
-        get_fin('operating_income_usgaap_summary', 'Prior1YearDuration'),
-        None if accounting_standard in ('IFRS', 'US GAAP')
-        else get_fin('operating_income_fs', 'Prior1YearDuration'),
-    )
-    prior_ordinary_income = _coalesce(
-        get_fin('ordinary_income_summary', 'Prior1YearDuration'),
-        get_fin('ordinary_income_usgaap_summary', 'Prior1YearDuration'),
-        get_fin('ordinary_income_fs', 'Prior1YearDuration'),
-    )
-    # Same ownership-basis split as net_income, read from the prior-year context.
-    prior_net_income_owners = _coalesce(
-        get_fin('net_income_summary', 'Prior1YearDuration'),
-        get_fin('net_income_ifrs_summary', 'Prior1YearDuration'),
-        get_fin('net_income_owners_ifrs_fs', 'Prior1YearDuration'),
-        get_fin('net_income_usgaap_summary', 'Prior1YearDuration'),
-        get_fin('net_income_owners_fs', 'Prior1YearDuration'),
-    )
-    prior_net_income_total = get_fin('net_income_fs', 'Prior1YearDuration')
-
-    # Balance sheet
-    total_assets = _coalesce(
-        get_fin('total_assets_summary', 'CurrentYearInstant'),
-        get_fin('total_assets_ifrs_summary', 'CurrentYearInstant'),
-        get_fin('total_assets_usgaap_summary', 'CurrentYearInstant'),
-        get_fin('total_assets_fs', 'CurrentYearInstant'),
-    )
-    # net_assets split by ownership basis (v0.8.0+). Owners-basis sources
-    # (IFRS summary + NEW FS-level jpigp_cor:EquityAttributableToOwnersOfParentIFRS,
-    # US-GAAP summary) fill ONLY net_assets_owners -- J-GAAP has no owners-only
-    # net-assets element, so net_assets_owners is ALWAYS None for J-GAAP filers
-    # (never derived from the component fields below). Total-basis sources
-    # (J-GAAP summary + FS jppfs:NetAssets w/ its existing IFRS_FALLBACK_MAP
-    # fallback to jpigp_cor:EquityIFRS, plus the two stage-3 suffix-matched
-    # total-equity fallbacks -- TotalEquityIFRS.../EquityIncludingNCI...,
-    # re-routed here from the pre-0.8.0 single net_assets field) fill ONLY
-    # net_assets_total. No cross-basis coalescing anywhere.
-    net_assets_owners = _coalesce(
-        get_fin('net_assets_ifrs_summary', 'CurrentYearInstant'),
-        get_fin('net_assets_owners_ifrs_fs', 'CurrentYearInstant'),
-        get_fin('net_assets_usgaap_summary', 'CurrentYearInstant'),
-    )
-    net_assets_total = _coalesce(
-        get_fin('net_assets_summary', 'CurrentYearInstant'),
-        get_net_assets_ifrs_total_by_suffix('CurrentYearInstant'),
-        get_net_assets_usgaap_total_by_suffix('CurrentYearInstant'),
-        get_fin('net_assets_fs', 'CurrentYearInstant'),
-    )
-    total_liabilities = get_fin('total_liabilities_fs', 'CurrentYearInstant')
-
-    # Balance-sheet equity components (J-GAAP FS-level; non_controlling_interests
-    # also fed by jpigp_cor:NonControllingInterestsIFRS via IFRS_FALLBACK_MAP).
-    # Facts as filed -- never summed to derive net_assets_owners/net_assets_total.
-    shareholders_equity = get_fin('shareholders_equity', 'CurrentYearInstant')
-    valuation_translation_adjustments = get_fin(
-        'valuation_translation_adjustments', 'CurrentYearInstant')
-    non_controlling_interests = get_fin('non_controlling_interests', 'CurrentYearInstant')
-
-    # Debt details
-    short_term_loans_payable = get_fin('short_term_loans_payable', 'CurrentYearInstant')
-    long_term_loans_payable = get_fin('long_term_loans_payable', 'CurrentYearInstant')
-    bonds_payable = get_fin('bonds_payable', 'CurrentYearInstant')
-    current_portion_ltd = get_fin('current_portion_long_term_loans_payable', 'CurrentYearInstant')
-    lease_obligations_current = get_fin('lease_obligations_current', 'CurrentYearInstant')
-    lease_obligations_noncurrent = get_fin('lease_obligations_noncurrent', 'CurrentYearInstant')
-    commercial_paper = get_fin('commercial_paper', 'CurrentYearInstant')
-
-    # IFRS balance-sheet debt (v0.8.0+). Observed at bare CurrentYearInstant
-    # context in both fixture styles (TDK combined-line; Murata separate-line)
-    # -- same context convention as the J-GAAP debt fields above, no variant
-    # handling needed. Not in IFRS_FALLBACK_MAP: these are new concepts, not
-    # fallbacks for the J-GAAP fields.
-    bonds_and_borrowings_current_ifrs = get_fin('bonds_and_borrowings_current_ifrs', 'CurrentYearInstant')
-    bonds_and_borrowings_noncurrent_ifrs = get_fin('bonds_and_borrowings_noncurrent_ifrs', 'CurrentYearInstant')
-    borrowings_current_ifrs = get_fin('borrowings_current_ifrs', 'CurrentYearInstant')
-    borrowings_noncurrent_ifrs = get_fin('borrowings_noncurrent_ifrs', 'CurrentYearInstant')
-
-    # Cash flow - Multi-tier fallback:
-    # 1. Japan GAAP Summary (jpcrp_cor)
-    # 2. IFRS Summary (jpcrp_cor with IFRS suffix)
-    # 3. Japan GAAP detailed statement (jppfs_cor)
-    # 4. IFRS detailed statement (jpigp_cor)
-    operating_cf = _coalesce(
-        get_fin('operating_cf_summary', 'CurrentYearDuration'),
-        get_fin('operating_cf_ifrs_summary', 'CurrentYearDuration'),
-        get_fin('operating_cf_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('operating_cf_cfs', 'CurrentYearDuration'),
-        get_fin('operating_cf_ifrs', 'CurrentYearDuration'),
-    )
-
-    investing_cf = _coalesce(
-        get_fin('investing_cf_summary', 'CurrentYearDuration'),
-        get_fin('investing_cf_ifrs_summary', 'CurrentYearDuration'),
-        get_fin('investing_cf_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('investing_cf_cfs', 'CurrentYearDuration'),
-        get_fin('investing_cf_ifrs', 'CurrentYearDuration'),
-    )
-
-    financing_cf = _coalesce(
-        get_fin('financing_cf_summary', 'CurrentYearDuration'),
-        get_fin('financing_cf_ifrs_summary', 'CurrentYearDuration'),
-        get_fin('financing_cf_usgaap_summary', 'CurrentYearDuration'),
-        get_fin('financing_cf_cfs', 'CurrentYearDuration'),
-        get_fin('financing_cf_ifrs', 'CurrentYearDuration'),
-    )
-
-    # Per-share metrics (try J-GAAP then IFRS summary).
-    # coerce_numeric_value() normalizes EDINET null markers ('－' U+FF0D, '−',
-    # '-', '') to None — a truthy check alone would let '－' through to
-    # Decimal() and crash. Required for both extract_value() calls in the
-    # eps waterfall so the `if not eps_str` gate works correctly.
-    patterns = get_context_patterns(is_consolidated, 'CurrentYearInstant')
-    nav_str = coerce_numeric_value(extract_value(
-        csv_files, ELEMENT_MAP['net_assets_per_share'], context_patterns=patterns
-    ))
-    if not nav_str:
-        # IFRS tier: bps_ifrs's element name is a taxonomy misnomer
-        # ("EquityToAssetRatio") but its label is 1株当たり親会社所有者帰属持分
-        # (equity attributable to owners of parent PER SHARE, in JPY) — the
-        # same concept as net_assets_per_share for IFRS filers. Already fed
-        # ifrs_summary_bps (v0.7.2+); wiring it here too keeps both in sync.
-        nav_str = coerce_numeric_value(extract_value(
-            csv_files, ELEMENT_MAP['bps_ifrs'], context_patterns=patterns
-        ))
-    if not nav_str:
-        nav_str = coerce_numeric_value(extract_value(
-            csv_files, ELEMENT_MAP['net_assets_per_share_usgaap'], context_patterns=patterns
-        ))
-    if not nav_str:
-        # US-GAAP custom-namespace variant (e.g. Sony's per-filer-EDINET-code
-        # namespace) — the fixed net_assets_per_share_usgaap id above never
-        # matches these filers at all. Suffix-matched at the bare
-        # (consolidated) context only — literal 'CurrentYearInstant', same
-        # idiom as get_revenue_by_suffix / get_operating_income_by_suffix
-        # (NOT patterns[0]: when is_consolidated is False, patterns[0] is
-        # the _NonConsolidatedMember-suffixed context, not the bare one).
-        nav_str = coerce_numeric_value(get_bps_usgaap_by_suffix('CurrentYearInstant'))
-    net_assets_per_share = Decimal(nav_str) if nav_str else None
-
-    patterns = get_context_patterns(is_consolidated, 'CurrentYearDuration')
-    eps_str = coerce_numeric_value(extract_value(
-        csv_files, ELEMENT_MAP['earnings_per_share'], context_patterns=patterns
-    ))
-    if not eps_str:
-        eps_str = coerce_numeric_value(extract_value(
-            csv_files, ELEMENT_MAP['earnings_per_share_ifrs'], context_patterns=patterns
-        ))
-    if not eps_str:
-        eps_str = coerce_numeric_value(extract_value(
-            csv_files, ELEMENT_MAP['earnings_per_share_usgaap'], context_patterns=patterns
-        ))
-    earnings_per_share = Decimal(eps_str) if eps_str else None
-
-    # Ratios (try J-GAAP, then IFRS summary, then US-GAAP summary)
-    # Note: EquityToAssetRatioUSGAAPSummaryOfBusinessResults IS a genuine ratio
-    # (unlike its IFRS taxonomy namesake which is a BPS misnomer).
-    patterns = get_context_patterns(is_consolidated, 'CurrentYearInstant')
-    provenance = {}
-    equity_str = None
-    for _key in ('equity_ratio', 'equity_ratio_ifrs', 'equity_ratio_usgaap'):
-        equity_str = extract_value(csv_files, ELEMENT_MAP[_key], context_patterns=patterns)
-        if equity_str:
-            provenance['equity_ratio'] = ELEMENT_MAP[_key]
-            break
-    equity_ratio = parse_percentage(equity_str)
-
-    patterns = get_context_patterns(is_consolidated, 'CurrentYearDuration')
-    roe_str = extract_value(csv_files, ELEMENT_MAP['roe'], context_patterns=patterns)
-    if not roe_str:
-        roe_str = extract_value(csv_files, ELEMENT_MAP['roe_ifrs'], context_patterns=patterns)
-    if not roe_str:
-        roe_str = extract_value(csv_files, ELEMENT_MAP['roe_usgaap'], context_patterns=patterns)
-    roe = parse_percentage(roe_str)
-
-    # IFRS summary CurrentYear metrics (v0.7.1+).
-    # Always extracted; None on non-IFRS rows where the element IDs aren't present.
-    # Note: extracted independently of the J-GAAP-first waterfall above, so
-    # consumers can distinguish IFRS-summary truth from waterfall-picked values.
-    # coerce_numeric_value() handles EDINET null markers ('－' U+FF0D, '−', '-', '')
-    # — a truthy check alone would let '－' through to Decimal() and crash.
-    ifrs_eps_str = coerce_numeric_value(extract_value(
-        csv_files, ELEMENT_MAP['earnings_per_share_ifrs'],
-        context_patterns=['CurrentYearDuration'],
-    ))
-    ifrs_summary_basic_eps = Decimal(ifrs_eps_str) if ifrs_eps_str else None
-
-    ifrs_roe_str = coerce_numeric_value(extract_value(
-        csv_files, ELEMENT_MAP['roe_ifrs'],
-        context_patterns=['CurrentYearDuration'],
-    ))
-    ifrs_summary_roe = Decimal(ifrs_roe_str) if ifrs_roe_str else None
-
-    ifrs_bps_str = coerce_numeric_value(extract_value(
-        csv_files, ELEMENT_MAP['bps_ifrs'],
-        context_patterns=['CurrentYearInstant'],
-    ))
-    ifrs_summary_bps = Decimal(ifrs_bps_str) if ifrs_bps_str else None
-
-    # Employment
-    num_employees = get_fin('num_employees', 'CurrentYearInstant')
-
-    # Balance sheet detail
-    cash_and_deposits = get_fin('cash_and_deposits', 'CurrentYearInstant')
-    current_assets = get_fin('current_assets', 'CurrentYearInstant')
-    noncurrent_assets = get_fin('noncurrent_assets', 'CurrentYearInstant')
-    property_plant_equipment = get_fin('property_plant_equipment', 'CurrentYearInstant')
-    deferred_tax_assets = get_fin('deferred_tax_assets', 'CurrentYearInstant')
-    current_liabilities = get_fin('current_liabilities', 'CurrentYearInstant')
-    accounts_payable_other = get_fin('accounts_payable_other', 'CurrentYearInstant')
-    retained_earnings = get_fin('retained_earnings', 'CurrentYearInstant')
-
-    # Income detail
-    income_before_taxes = get_fin('income_before_taxes', 'CurrentYearDuration')
-    non_operating_income = get_fin('non_operating_income', 'CurrentYearDuration')
-    non_operating_expenses = get_fin('non_operating_expenses', 'CurrentYearDuration')
-    income_taxes = get_fin('income_taxes', 'CurrentYearDuration')
-
-    # Cash flow detail
-    depreciation_amortization = get_fin('depreciation_amortization_cfo', 'CurrentYearDuration')
+    financials = _extract_financials(csv_files, standard, is_consolidated)
+    per_share, provenance = _extract_per_share_block(
+        csv_files, standard, is_consolidated)
 
     # Categorize all elements
     raw_fields, text_blocks, unmapped_fields, raw_facts = categorize_elements(csv_files, ELEMENT_MAP)
@@ -993,93 +920,15 @@ def parse_securities_report(document=None, *, csv_files=None, doc_id=None, doc_t
         text_blocks=text_blocks,
         raw_facts=raw_facts,
 
-        # Identification
-        filer_name=company_name or getattr(document, 'filer_name', None),
-        filer_name_en=get_dei('company_name_en'),
-        filer_edinet_code=edinet_code or getattr(document, 'filer_edinet_code', None),
-        ticker=ticker,
-        accounting_standard=accounting_standard,
-        is_consolidated=is_consolidated,
+        # Identification (document metadata fills DEI gaps)
+        **{**dei,
+           'filer_name': dei['filer_name'] or getattr(document, 'filer_name', None),
+           'filer_edinet_code': (dei['filer_edinet_code']
+                                 or getattr(document, 'filer_edinet_code', None))},
 
-        # Period
-        fiscal_year_start=fiscal_year_start,
-        fiscal_year_end=fiscal_year_end,
-
-        # Income Statement (Current)
-        net_sales=net_sales,
-        operating_income=operating_income,
-        ordinary_income=ordinary_income,
-        net_income_owners=net_income_owners,
-        net_income_total=net_income_total,
-
-        # Income Statement (Prior)
-        prior_net_sales=prior_net_sales,
-        prior_operating_income=prior_operating_income,
-        prior_ordinary_income=prior_ordinary_income,
-        prior_net_income_owners=prior_net_income_owners,
-        prior_net_income_total=prior_net_income_total,
-
-        # Balance Sheet
-        total_assets=total_assets,
-        net_assets_owners=net_assets_owners,
-        net_assets_total=net_assets_total,
-        shareholders_equity=shareholders_equity,
-        valuation_translation_adjustments=valuation_translation_adjustments,
-        non_controlling_interests=non_controlling_interests,
-        total_liabilities=total_liabilities,
-
-        # Balance Sheet - Debt Details
-        short_term_loans_payable=short_term_loans_payable,
-        long_term_loans_payable=long_term_loans_payable,
-        bonds_payable=bonds_payable,
-        current_portion_long_term_loans_payable=current_portion_ltd,
-        lease_obligations_current=lease_obligations_current,
-        lease_obligations_noncurrent=lease_obligations_noncurrent,
-        commercial_paper=commercial_paper,
-        bonds_and_borrowings_current_ifrs=bonds_and_borrowings_current_ifrs,
-        bonds_and_borrowings_noncurrent_ifrs=bonds_and_borrowings_noncurrent_ifrs,
-        borrowings_current_ifrs=borrowings_current_ifrs,
-        borrowings_noncurrent_ifrs=borrowings_noncurrent_ifrs,
-
-        # Cash Flow
-        operating_cash_flow=operating_cf,
-        investing_cash_flow=investing_cf,
-        financing_cash_flow=financing_cf,
-
-        # Per-Share
-        net_assets_per_share=net_assets_per_share,
-        earnings_per_share=earnings_per_share,
-
-        # Ratios
-        equity_ratio=equity_ratio,
-        roe=roe,
-
-        # IFRS summary metrics (v0.7.1+)
-        ifrs_summary_basic_eps=ifrs_summary_basic_eps,
-        ifrs_summary_roe=ifrs_summary_roe,
-        ifrs_summary_bps=ifrs_summary_bps,
-
-        # Employment
-        num_employees=num_employees,
-
-        # Balance Sheet Detail
-        cash_and_deposits=cash_and_deposits,
-        current_assets=current_assets,
-        noncurrent_assets=noncurrent_assets,
-        property_plant_equipment=property_plant_equipment,
-        deferred_tax_assets=deferred_tax_assets,
-        current_liabilities=current_liabilities,
-        accounts_payable_other=accounts_payable_other,
-        retained_earnings=retained_earnings,
-
-        # Income Detail
-        income_before_taxes=income_before_taxes,
-        non_operating_income=non_operating_income,
-        non_operating_expenses=non_operating_expenses,
-        income_taxes=income_taxes,
-
-        # Cash Flow Detail
-        depreciation_amortization=depreciation_amortization,
+        # Financials (tier tables) + per-share/ratios
+        **financials,
+        **per_share,
 
         # Segments (v0.7.0+)
         segments=segments,

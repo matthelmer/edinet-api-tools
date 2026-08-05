@@ -12,9 +12,30 @@ Add new fixtures here only when at least one test will use them; otherwise
 inline the test data with the test that needs it (easier to reason about,
 no spooky-action-at-a-distance shape coupling).
 """
+import csv as _csv
 import os
+from pathlib import Path
 
 import pytest
+
+# The 9-column EDINET CSV shape (matches extraction._read_csv_from_zip).
+EDINET_CSV_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
+                   '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
+
+
+def load_securities_fixture(name: str) -> list:
+    """Load tests/fixtures/securities/<name>.csv (a real-filing TSV) into
+    the csv_files structure the parsers accept.
+
+    One shared implementation — this loader used to be re-implemented in
+    nine test modules (consolidated 0.8.0 stage-5, Verification Contract B).
+    Import as `from tests.conftest import load_securities_fixture`.
+    """
+    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
+    with open(p, encoding='utf-8') as fh:
+        rows = list(_csv.reader(fh, delimiter='\t'))
+    return [{'filename': f'{name}.csv',
+             'data': [dict(zip(EDINET_CSV_COLS, r)) for r in rows[1:]]}]
 
 
 @pytest.fixture(autouse=True)

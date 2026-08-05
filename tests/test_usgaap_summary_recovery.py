@@ -38,21 +38,13 @@ Canon FY24 fixture element-presence audit (filing S100XTLJ, 2026-06-10):
   NetIncomeLossAttributableToOwnersOfParentUSGAAPSummaryOfBR          MISSING   — Canon omits; net_income is None
   OperatingIncomeLossUSGAAPSummaryOfBusinessResults                   MISSING   — Canon omits; operating_income is None
 """
-import csv as _csv
 from decimal import Decimal
-from pathlib import Path
 
 from edinet_tools.parsers.securities import parse_securities_report
-
-_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-         '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
-
+from tests.conftest import load_securities_fixture
 
 def _parse(name: str):
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
-    with open(p, encoding='utf-8') as fh:
-        rows = list(_csv.reader(fh, delimiter='\t'))
-    cf = [{'filename': f'{name}.csv', 'data': [dict(zip(_COLS, r)) for r in rows[1:]]}]
+    cf = load_securities_fixture(name)
     return parse_securities_report(csv_files=cf, doc_id='TEST', doc_type_code='120')
 
 

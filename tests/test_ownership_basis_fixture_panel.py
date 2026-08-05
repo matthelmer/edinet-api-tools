@@ -14,21 +14,13 @@ ZERO extraction flags (withheld or annotated) -- these are the release's
 rewire (see TestOwnershipBasisEquityRatioIdentity in test_grain_split.py for
 the synthetic identity-behavior coverage this panel extends).
 """
-import csv as _csv
 from decimal import Decimal
-from pathlib import Path
 
 from edinet_tools.parsers.securities import parse_securities_report
-
-_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-         '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
-
+from tests.conftest import load_securities_fixture
 
 def _parse(name):
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
-    with open(p, encoding='utf-8') as fh:
-        rows = list(_csv.reader(fh, delimiter='\t'))
-    cf = [{'filename': f'{name}.csv', 'data': [dict(zip(_COLS, r)) for r in rows[1:]]}]
+    cf = load_securities_fixture(name)
     return parse_securities_report(csv_files=cf, doc_id=name, doc_type_code='120')
 
 

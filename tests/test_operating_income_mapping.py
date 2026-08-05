@@ -2,18 +2,12 @@
 IFRS/US-GAAP consolidated filers. Trading houses (no IFRS operating subtotal)
 get honest None; filers that DO report an IFRS/US-GAAP operating line keep it.
 """
-import csv as _csv
-from pathlib import Path
 import pytest
 from edinet_tools.parsers.securities import parse_securities_report
-
-_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-         '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
+from tests.conftest import load_securities_fixture
 
 def _load(name):
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
-    rows = list(_csv.reader(open(p, encoding='utf-8'), delimiter='\t'))
-    return [{'filename': f'{name}.csv', 'data': [dict(zip(_COLS, r)) for r in rows[1:]]}]
+    return load_securities_fixture(name)
 
 def _parse(name):
     return parse_securities_report(csv_files=_load(name), doc_id='TEST', doc_type_code='120')

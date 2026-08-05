@@ -18,19 +18,12 @@ Fixture route:
     in operating_cash_flow / investing_cash_flow / financing_cash_flow when no
     summary or IFRS source is present.
 """
-import csv as _csv
-from pathlib import Path
 import pytest
 from edinet_tools.parsers.securities import parse_securities_report
-
-_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-         '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
-
+from tests.conftest import load_securities_fixture
 
 def _load(name):
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
-    rows = list(_csv.reader(open(p, encoding='utf-8'), delimiter='\t'))
-    return [{'filename': f'{name}.csv', 'data': [dict(zip(_COLS, r)) for r in rows[1:]]}]
+    return load_securities_fixture(name)
 
 
 def _parse(name):

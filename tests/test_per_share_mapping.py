@@ -14,19 +14,12 @@ EquityAttributableToOwnersOfParentPerShareUSGAAPSummaryOfBusinessResults id
 the existing tier matches — needs a suffix-match tier, same pattern as
 get_revenue_by_suffix / get_operating_income_by_suffix.
 """
-import csv as _csv
-from pathlib import Path
 from decimal import Decimal
 from edinet_tools.parsers.securities import parse_securities_report
-
-_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-         '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
-
+from tests.conftest import load_securities_fixture
 
 def _load(name):
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
-    rows = list(_csv.reader(open(p, encoding='utf-8'), delimiter='\t'))
-    return [{'filename': f'{name}.csv', 'data': [dict(zip(_COLS, r)) for r in rows[1:]]}]
+    return load_securities_fixture(name)
 
 
 def _parse(name):

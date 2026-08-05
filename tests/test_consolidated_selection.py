@@ -20,23 +20,14 @@ Written TDD-first: at authoring time Toyota/Takeda/Sony returned the parent
 figure; the v0.7.0 strict-consolidated selection fixed that, and these tests
 now pin the corrected behavior.
 """
-import csv as _csv
-from pathlib import Path
 
 import pytest
 
 from edinet_tools.parsers.securities import parse_securities_report
-
-_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-         '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
-
+from tests.conftest import load_securities_fixture
 
 def _load(name: str):
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
-    with open(p, encoding='utf-8') as f:
-        rows = list(_csv.reader(f, delimiter='\t'))
-    data = [dict(zip(_COLS, r)) for r in rows[1:]]
-    return [{'filename': f'{name}.csv', 'data': data}]
+    return load_securities_fixture(name)
 
 
 @pytest.mark.parametrize('name,expected_rev', [
