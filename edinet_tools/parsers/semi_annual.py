@@ -10,12 +10,12 @@ from typing import Any, Optional
 
 from .base import ParsedReport
 from .extraction import (
+    Tier,
+    resolve_tiers,
+    get_dei,
     extract_csv_from_zip,
-    extract_value,
     categorize_elements,
-    parse_int,
     parse_date,
-    coerce_numeric_value,
 )
 
 
@@ -109,25 +109,46 @@ class SemiAnnualReport(ParsedReport):
         return f"SemiAnnualReport(filer='{filer}', period_end={period})"
 
 
+def _chain(key: str):
+    """ELEMENT_MAP[key] plus its IFRS_FALLBACK_MAP fallback as ONE tier's
+    element chain."""
+    element_id = ELEMENT_MAP[key]
+    fallback = IFRS_FALLBACK_MAP.get(element_id)
+    if not fallback:
+        return element_id
+    return (element_id, fallback)
+
+
+# Per-field tier tables (v0.8.0 stage-5 migration) — STRUCTURAL migration
+# only. These resolve with period=None: context-BLIND, first match in file
+# order, exactly the legacy behavior. That blindness is a known defect
+# (a Prior2 or parent-context row earlier in the file wins over the
+# current period); the ratified semi-annual context fix will replace
+# period=None with real period/consolidation discipline as its own
+# separately-predicted change — do NOT "fix" it in passing here.
+_FIELD_TIERS = {
+    'total_assets': (Tier(_chain('assets')),),
+    'current_assets': (Tier(_chain('current_assets')),),
+    'total_liabilities': (Tier(_chain('liabilities')),),
+    'current_liabilities': (Tier(_chain('current_liabilities')),),
+    'net_assets': (Tier(_chain('net_assets')),),
+    'operating_income': (Tier(_chain('operating_income')),),
+    'ordinary_income': (Tier(_chain('ordinary_income')),),
+    'profit_loss': (Tier(_chain('profit_loss')),),
+}
+
+
 def _extract_financial(csv_files: list, element_id: str) -> Optional[int]:
-    """Extract financial value with IFRS fallback.
-
-    Normalizes EDINET null markers ('－' / '-' / '−' / '') to None before
-    the truthy check — without this, IFRS reporters that emit J-GAAP
-    elements with '－' would truthy-pass the primary-element check and
-    the IFRS fallback would never fire.
-    """
-    value_str = coerce_numeric_value(extract_value(csv_files, element_id))
-    if value_str:
-        return parse_int(value_str)
-
-    ifrs_element = IFRS_FALLBACK_MAP.get(element_id)
-    if ifrs_element:
-        value_str = coerce_numeric_value(extract_value(csv_files, ifrs_element))
-        if value_str:
-            return parse_int(value_str)
-
-    return None
+    """Legacy-shaped helper (kept for tests/back-compat): one primary
+    element with its IFRS fallback, resolved context-blind through the
+    tier core — identical semantics to the pre-tier implementation,
+    including the null-marker normalization that lets the IFRS fallback
+    fire when the primary carries '－'."""
+    fallback = IFRS_FALLBACK_MAP.get(element_id)
+    chain = (element_id, fallback) if fallback else element_id
+    hit = resolve_tiers(csv_files, (Tier(chain),), standard=None,
+                        period=None, is_consolidated=None)
+    return hit.value if hit else None
 
 
 def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_type_code=None) -> SemiAnnualReport:
@@ -161,30 +182,32 @@ def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_
 
     source_files = [f['filename'] for f in csv_files]
 
-    # Helper to get DEI values
-    def get_dei(key: str) -> str | None:
-        return extract_value(csv_files, ELEMENT_MAP.get(key, ''), context_patterns=['FilingDateInstant'])
-
     # Extract DEI elements
-    edinet_code = get_dei('edinet_code')
-    filer_name = get_dei('filer_name')
-    fund_code = get_dei('fund_code')
-    fund_name = get_dei('fund_name')
+    edinet_code = get_dei(csv_files, ELEMENT_MAP, 'edinet_code')
+    filer_name = get_dei(csv_files, ELEMENT_MAP, 'filer_name')
+    fund_code = get_dei(csv_files, ELEMENT_MAP, 'fund_code')
+    fund_name = get_dei(csv_files, ELEMENT_MAP, 'fund_name')
 
     # Extract period
-    period_start = parse_date(get_dei('period_start'))
-    period_end = parse_date(get_dei('period_end'))
-    filing_date = parse_date(get_dei('submission_date')) or period_end
+    period_start = parse_date(get_dei(csv_files, ELEMENT_MAP, 'period_start'))
+    period_end = parse_date(get_dei(csv_files, ELEMENT_MAP, 'period_end'))
+    filing_date = parse_date(get_dei(csv_files, ELEMENT_MAP, 'submission_date')) or period_end
 
-    # Financial data
-    total_assets = _extract_financial(csv_files, ELEMENT_MAP['assets'])
-    current_assets = _extract_financial(csv_files, ELEMENT_MAP['current_assets'])
-    total_liabilities = _extract_financial(csv_files, ELEMENT_MAP['liabilities'])
-    current_liabilities = _extract_financial(csv_files, ELEMENT_MAP['current_liabilities'])
-    net_assets = _extract_financial(csv_files, ELEMENT_MAP['net_assets'])
-    operating_income = _extract_financial(csv_files, ELEMENT_MAP['operating_income'])
-    ordinary_income = _extract_financial(csv_files, ELEMENT_MAP['ordinary_income'])
-    profit_loss = _extract_financial(csv_files, ELEMENT_MAP['profit_loss'])
+    # Financial data from the tier tables — context-blind compatibility
+    # path (period=None); see the _FIELD_TIERS comment.
+    def fin(name):
+        hit = resolve_tiers(csv_files, _FIELD_TIERS[name], standard=None,
+                            period=None, is_consolidated=None)
+        return hit.value if hit else None
+
+    total_assets = fin('total_assets')
+    current_assets = fin('current_assets')
+    total_liabilities = fin('total_liabilities')
+    current_liabilities = fin('current_liabilities')
+    net_assets = fin('net_assets')
+    operating_income = fin('operating_income')
+    ordinary_income = fin('ordinary_income')
+    profit_loss = fin('profit_loss')
 
     # Categorize all elements
     raw_fields, text_blocks, unmapped_fields, raw_facts = categorize_elements(csv_files, ELEMENT_MAP)
