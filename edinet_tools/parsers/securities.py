@@ -134,6 +134,15 @@ ELEMENT_MAP = {
     'operating_income_ifrs_summary': 'jpcrp_cor:OperatingProfitLossIFRSSummaryOfBusinessResults',
     'operating_income_ifrs_fs': 'jpigp_cor:OperatingProfitLossIFRS',
     'net_income_ifrs_summary': 'jpcrp_cor:ProfitLossAttributableToOwnersOfParentIFRSSummaryOfBusinessResults',
+    # TOTAL-basis (includes non-controlling interests) IFRS summary profit --
+    # a last-resort-only mapping (see _DURATION_TIERS['net_income_total']).
+    # Some IFRS filers tag this element but tag neither the owners-basis
+    # summary element above nor the owners-basis FS element
+    # (jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS) anywhere in the
+    # filing -- net_income_total was structurally None for these filers
+    # before this mapping, even though the filing states a real total-basis
+    # figure.
+    'net_income_ifrs_summary_total': 'jpcrp_cor:ProfitLossIFRSSummaryOfBusinessResults',
     'total_assets_ifrs_summary': 'jpcrp_cor:TotalAssetsIFRSSummaryOfBusinessResults',
     'net_assets_ifrs_summary': 'jpcrp_cor:EquityAttributableToOwnersOfParentIFRSSummaryOfBusinessResults',
     'earnings_per_share_ifrs': 'jpcrp_cor:BasicEarningsLossPerShareIFRSSummaryOfBusinessResults',
@@ -605,6 +614,12 @@ _DURATION_TIERS = {
     ),
     'net_income_total': (
         Tier(_chain('net_income_fs')),
+        # Last-resort-only: tried strictly after the tier above, and only
+        # engages when it resolved to None. IFRS-only -- a J-GAAP filing
+        # tagging this element (which should never happen, but tier scoping
+        # does not depend on that) must not read it.
+        Tier(_chain('net_income_ifrs_summary_total'), standards=('IFRS',),
+             last_resort=True),
     ),
     # Cash flow: J-GAAP summary -> IFRS summary -> US-GAAP summary ->
     # J-GAAP FS statement -> IFRS FS statement.
