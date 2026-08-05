@@ -240,6 +240,32 @@ for flag in report.extraction_flags:
     print(flag.field, flag.severity, flag.rule, flag.value)
 ```
 
+### Building your own plausibility checks
+
+Validation above only checks what a value can *structurally* be — never
+what's *typical*. edinet-tools deliberately ships no opinion on
+plausibility: whether a ratio "looks right" depends on judgment the
+library doesn't have, so that judgment stays yours to make, on the typed
+fields it hands you as filed. A minimal example, using the
+owners/total pair described above:
+
+```python
+ratio = abs(report.net_income_owners / report.net_income_total)
+low, high = 0.02, 50  # pick a band that fits your use case
+if not (low <= ratio <= high):
+    review_queue.append((report, ratio))  # your queue, your call
+```
+
+Treat a flag from a check like this as a prompt to look, not a verdict.
+It's an aggregate screen: a filer whose consolidated net income sits near
+zero in a given year can produce a legitimate owners/total ratio in the
+hundreds, purely because the denominator is small — both figures are
+correctly filed, and the ratio between them is just noisy near zero. A
+flagged filing may be exactly what it says. edinet-tools reports what a
+filing states; deciding whether a given ratio is worth a second look —
+and picking the band that decides that — is a call for the code that
+consumes the data, not this library.
+
 ### Download Formats
 
 ```python
