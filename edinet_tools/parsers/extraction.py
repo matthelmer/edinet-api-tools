@@ -9,10 +9,11 @@ import logging
 import re
 import unicodedata
 import zipfile
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, NamedTuple, Optional
 
 from ._facts import Fact
 
@@ -453,6 +454,190 @@ def match_element_by_suffix(
     return results
 
 
+# ---------------------------------------------------------------------------
+# Declarative tier resolution (v0.8.0)
+#
+# `Tier` + `resolve_tiers` replace the per-parser waterfall idioms
+# (_coalesce over extract_financial calls, per-share/ratio element loops,
+# custom-namespace suffix hatches) with per-field tier tables. The resolver
+# COMPOSES the primitives above — extract_value / get_context_patterns /
+# match_element_by_suffix / coerce_numeric_value — it introduces no new
+# row-iteration logic. Every semantic here reproduces a behavior the
+# migrated parsers already had; the migration was proven by full-corpus
+# old-vs-new equivalence, so treat any semantic change as a mapping change
+# (census + prediction first).
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Tier:
+    """One step of a declarative extraction waterfall.
+
+    element_id: a single XBRL element id, or a tuple resolved as ONE tier —
+        in 'financial' mode the chain is tried pattern-major (context level
+        outer, element inner), which is exactly extract_financial's
+        primary-plus-fallbacks semantics. For suffix_match tiers these are
+        canonical local names, tried canonical-major.
+    standards: whitelist — the tier applies only when the filing's
+        accounting standard is in the tuple; None applies to every standard.
+        A missing (None) standard matches ONLY standards=None tiers.
+    exclude_standards: blacklist — the 0.7.1 operating-income gate's shape
+        ("IFRS/US-GAAP filers NEVER fall back to the parent J-GAAP
+        element"). A whitelist cannot express "every standard except these,
+        unknown/missing included", so the gate keeps its blacklist form.
+    suffix_match: resolve via match_element_by_suffix at the BARE period
+        context only — the custom-namespace hatch contract (a parent
+        _NonConsolidatedMember figure can never win a suffix tier).
+    last_resort: consulted only after every non-last_resort tier resolved
+        to None, regardless of the tier's position in the table (it stays
+        in the table so the tier data documents itself).
+    """
+    element_id: str | tuple
+    standards: Optional[tuple] = None
+    exclude_standards: Optional[tuple] = None
+    suffix_match: bool = False
+    last_resort: bool = False
+
+    @property
+    def elements(self) -> tuple:
+        if isinstance(self.element_id, tuple):
+            return self.element_id
+        return (self.element_id,)
+
+
+class TierHit(NamedTuple):
+    """A resolved tier: the value (int in 'financial' mode, str in 'string'
+    mode) plus the winning element id — free per-field provenance."""
+    value: Any
+    element_id: str
+
+
+def _tier_in_scope(tier: Tier, standard: Optional[str]) -> bool:
+    if tier.standards is not None and standard not in tier.standards:
+        return False
+    if tier.exclude_standards is not None and standard in tier.exclude_standards:
+        return False
+    return True
+
+
+def _resolve_suffix_tier(csv_files, tier, period):
+    """The securities.py hatch scan, verbatim semantics: canonical-major,
+    bare-period context only, null-marker rows skipped mid-scan, first
+    coerce-truthy value string wins."""
+    for canonical in tier.elements:
+        for row in match_element_by_suffix(csv_files, canonical):
+            if (row.get('コンテキストID', '') or '') == period:
+                v = coerce_numeric_value(row.get('値', ''))
+                if v:
+                    return v, (row.get('要素ID', '') or canonical)
+    return None, None
+
+
+def _resolve_financial_tier(csv_files, tier, patterns):
+    """extract_financial's within-call semantics: context level outer,
+    element chain inner, first coerce-truthy string commits the tier."""
+    for pattern in patterns:
+        context_patterns = [pattern] if pattern is not None else None
+        for elem in tier.elements:
+            s = coerce_numeric_value(
+                extract_value(csv_files, elem, context_patterns=context_patterns))
+            if s:
+                return s, elem
+    return None, None
+
+
+def resolve_tiers(
+    csv_files: list,
+    tiers,
+    *,
+    standard: Optional[str],
+    period: Optional[str],
+    is_consolidated: Optional[bool],
+    mode: str = 'financial',
+    coerce: bool = True,
+) -> Optional[TierHit]:
+    """Resolve a per-field tier table to a TierHit, or None (honest absence).
+
+    Two modes, each reproducing one pre-existing waterfall idiom exactly:
+
+    - 'financial' (ints): the get_fin/_coalesce idiom. Per tier:
+      pattern-major over the element chain, null markers skip WITHIN the
+      tier; a coerce-truthy string that fails parse_int commits the tier
+      but advances the WATERFALL (matching a get_fin returning None into
+      _coalesce). `coerce` is ignored (always on — extract_financial's
+      contract).
+    - 'string' (raw value strings; caller parses): the per-share/ratio
+      idioms. Per tier: ONE extract_value call per element over the FULL
+      pattern list (extract_value short-circuits on the first pattern with
+      any row — a marker at the preferred context is returned, not
+      pattern-fallen-through). coerce=True reproduces the eps/nav
+      null-marker tier-advance; coerce=False reproduces the legacy
+      equity-ratio/roe first-non-empty-raw-string-stops behavior (the
+      caller's parse_percentage turns markers into None).
+
+    period=None resolves context-blind (extract_value with no context
+    patterns — first match in file order), preserving the semi-annual
+    parser's legacy semantics until its ratified context fix lands.
+    Suffix tiers require a concrete period.
+
+    standard/period/is_consolidated are keyword-only so call sites read as
+    data, matching the tier tables they resolve.
+    """
+    if mode not in ('financial', 'string'):
+        raise ValueError(f"unknown mode: {mode!r}")
+    if period is not None:
+        patterns = get_context_patterns(is_consolidated, period)
+    else:
+        patterns = [None]
+
+    ordered = [t for t in tiers if not t.last_resort] + \
+              [t for t in tiers if t.last_resort]
+
+    for tier in ordered:
+        if not _tier_in_scope(tier, standard):
+            continue
+
+        if tier.suffix_match:
+            if period is None:
+                raise ValueError('suffix_match tiers require a concrete period')
+            s, elem = _resolve_suffix_tier(csv_files, tier, period)
+            if s is None:
+                continue
+            if mode == 'financial':
+                v = parse_int(s)
+                if v is None:
+                    continue  # parse failure advances the waterfall
+                return TierHit(v, elem)
+            return TierHit(s, elem)
+
+        if mode == 'financial':
+            s, elem = _resolve_financial_tier(csv_files, tier, patterns)
+            if s is None:
+                continue
+            v = parse_int(s)
+            if v is None:
+                continue  # parse failure advances the waterfall
+            return TierHit(v, elem)
+
+        # string mode
+        for elem in tier.elements:
+            s = extract_value(
+                csv_files, elem,
+                context_patterns=patterns if period is not None else None)
+            candidate = coerce_numeric_value(s) if coerce else s
+            if candidate:
+                return TierHit(candidate, elem)
+
+    return None
+
+
+def get_dei(csv_files: list, element_map: dict, key: str) -> Optional[str]:
+    """Shared DEI reader: identification facts are filed once, at the
+    FilingDateInstant context. Returns None for unknown keys (the parsers'
+    pre-existing lenient contract)."""
+    return extract_value(csv_files, element_map.get(key, ''),
+                         context_patterns=['FilingDateInstant'])
+
+
 def extract_csv_to_disk(zip_bytes: bytes, output_dir) -> list:
     """
     Extract CSV files from an EDINET ZIP and write them to disk.
@@ -499,9 +684,14 @@ def extract_csv_to_disk(zip_bytes: bytes, output_dir) -> list:
 # ---------------------------------------------------------------------------
 
 # Placeholders EDINET uses for "no value" in numeric contexts.
-# After NFKC normalization, U+FF0D (－) becomes '-', and U+2212 (−) becomes '-'.
-# So the normalized set is just ('', '-').
-_NUMERIC_NULL_PLACEHOLDERS = frozenset({'－', '−', '', '-'})
+# NFKC folds U+FF0D (－) to '-' but leaves U+2212 (−), U+2015 (―) and
+# U+2014 (—) unchanged, so the set carries every member explicitly and
+# coerce_numeric_value checks membership AFTER normalization.
+# '―'/'—' added v0.8.0 (stage-5 B5): both appear in real filings and were
+# already nulled by the quarterly eps marker tuple and parse_int/parse_date
+# — extending the shared set is what makes replacing those local tuples
+# with coerce_numeric_value behavior-preserving.
+_NUMERIC_NULL_PLACEHOLDERS = frozenset({'－', '−', '', '-', '―', '—'})
 
 
 def coerce_numeric_value(value) -> str | None:
@@ -509,8 +699,8 @@ def coerce_numeric_value(value) -> str | None:
 
     Per spec §3.5: handles EDINET's varied null-placeholder shapes:
     '－' (U+FF0D full-width minus), '-' (bare ASCII hyphen alone),
-    '−' (U+2212 minus sign), '' (empty), whitespace-only. All coerce
-    to None.
+    '−' (U+2212 minus sign), '―' (U+2015 horizontal bar), '—' (U+2014
+    em dash), '' (empty), whitespace-only. All coerce to None.
 
     Full-width digits ('１', '２', ...) and full-width comma ('，') are
     normalized to half-width equivalents via NFKC.
@@ -537,9 +727,10 @@ def coerce_numeric_value(value) -> str | None:
     # explicitly alongside the bare ASCII '-' placeholder check below.
     s = unicodedata.normalize('NFKC', s)
 
-    # After normalization, bare '-' (and its full-width forms, and U+2212 alone)
-    # is a null placeholder.  '-1000' is a real negative number and passes through.
-    if s in ('-', '−'):
+    # After normalization, a bare dash-family character alone is a null
+    # placeholder ('-' from NFKC-folded '－', plus the unfolded '−'/'―'/'—').
+    # '-1000' is a real negative number and passes through.
+    if s in _NUMERIC_NULL_PLACEHOLDERS:
         return None
 
     # Empty string after normalization (shouldn't happen after strip, but be safe)

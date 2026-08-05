@@ -31,13 +31,21 @@ FILING_DATE_SANITY_DAYS = 30
 class ExtractionFlag:
     """One validation finding. severity 'withheld' means the typed field was
     emptied (bounds); 'annotated' means the field kept its value (identities,
-    date sanity)."""
+    date sanity).
+
+    operands (v0.8.0+, additive): on identity flags, the structured
+    {operand_field: value_string} dict behind the rendered `value` string —
+    machine-readable without re-parsing the rendering. None on bounds and
+    date-sanity flags (single-value findings; `value` already carries it).
+    The rendered `value` string is kept unchanged alongside it.
+    """
     field: str
     element_id: Optional[str]
     value: str
     rule: str
     severity: str  # 'withheld' | 'annotated'
     accounting_standard: Optional[str]
+    operands: Optional[dict] = None
 
     def to_dict(self) -> dict:
         return {
@@ -47,6 +55,7 @@ class ExtractionFlag:
             'rule': self.rule,
             'severity': self.severity,
             'accounting_standard': self.accounting_standard,
+            'operands': self.operands,
         }
 
 
@@ -148,6 +157,10 @@ def apply_identities(report, identities) -> list:
             rule=identity.name,
             severity='annotated',
             accounting_standard=standard,
+            # Structured form of the rendered string (D6 bundle): values as
+            # strings so to_dict() stays JSON-safe (operands are Decimals).
+            operands={op: str(val)
+                      for op, val in zip(identity.operands, values)},
         ))
     return flags
 

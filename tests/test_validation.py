@@ -83,7 +83,7 @@ class TestBoundsWithhold:
         d = f.to_dict()
         assert d == {'field': 'equity_ratio', 'element_id': 'x', 'value': '2',
                      'rule': 'bound:equity_ratio<=1', 'severity': 'withheld',
-                     'accounting_standard': 'IFRS'}
+                     'accounting_standard': 'IFRS', 'operands': None}
 
 
 def equity_ratio_reconciles(er, na, ta):
@@ -138,6 +138,43 @@ class TestIdentitiesAnnotate:
         report = make_report(equity_ratio=Decimal('0.30'),
                              net_assets_total=600, total_assets=1000)  # J-GAAP
         assert apply_identities(report, [scoped]) == []
+
+
+class TestIdentityOperandsDict:
+    """v0.8.0 D6 bundle: identity flags carry a structured operands dict
+    (additive) alongside the unchanged rendered `value` string."""
+
+    def test_violation_flag_carries_structured_operands(self):
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets_total=600, total_assets=1000)
+        flags = apply_identities(report, [EQUITY_IDENTITY])
+        assert flags[0].operands == {'equity_ratio': '0.30',
+                                     'net_assets_total': '600',
+                                     'total_assets': '1000'}
+        # The rendered string is KEPT unchanged alongside the dict.
+        assert 'equity_ratio=0.30' in flags[0].value
+
+    def test_bounds_flag_operands_is_none(self):
+        report = make_report(equity_ratio=Decimal('27056.2'))
+        flags = apply_bounds(report, BOUNDS)
+        assert flags[0].operands is None
+
+    def test_to_dict_carries_both_forms(self):
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets_total=600, total_assets=1000)
+        apply_validation(report, [], [EQUITY_IDENTITY])
+        d = report.to_dict()['extraction_flags'][0]
+        assert d['operands'] == {'equity_ratio': '0.30',
+                                 'net_assets_total': '600',
+                                 'total_assets': '1000'}
+        assert 'equity_ratio=0.30' in d['value']
+
+    def test_operands_values_are_json_safe_strings(self):
+        import json
+        report = make_report(equity_ratio=Decimal('0.30'),
+                             net_assets_total=600, total_assets=1000)
+        apply_validation(report, [], [EQUITY_IDENTITY])
+        json.dumps(report.to_dict()['extraction_flags'])  # must not raise
 
 
 class TestExtractionFlagsOnBaseType:
