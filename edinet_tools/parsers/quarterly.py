@@ -15,14 +15,16 @@ from typing import Any, Optional
 
 from .base import ParsedReport
 from .extraction import (
+    Tier,
+    resolve_tiers,
+    get_dei,
     extract_csv_from_zip,
     extract_value,
     categorize_elements,
     get_context_patterns,
-    extract_financial,
     parse_percentage,
-    parse_int,
     parse_date,
+    coerce_numeric_value,
 )
 
 
@@ -67,6 +69,41 @@ IFRS_FALLBACK_MAP = {
     'jppfs_cor:Assets': 'jpigp_cor:AssetsIFRS',
     'jppfs_cor:NetAssets': 'jpigp_cor:EquityIFRS',
     'jppfs_cor:Liabilities': 'jpigp_cor:LiabilitiesIFRS',
+}
+
+
+def _chain(key: str):
+    """ELEMENT_MAP[key] plus its IFRS_FALLBACK_MAP fallback as ONE tier's
+    element chain (extract_financial's primary-plus-fallback, declarative)."""
+    element_id = ELEMENT_MAP[key]
+    fallback = IFRS_FALLBACK_MAP.get(element_id)
+    if not fallback:
+        return element_id
+    return (element_id, fallback)
+
+
+# Per-field tier tables (v0.8.0 stage-5 migration). Single-tier waterfalls:
+# each field is one primary element with at most one IFRS fallback, exactly
+# the pre-migration extract_financial calls. Deliberately NO per-standard
+# gate here — the quarterly gate (and the 0.7.1-class leak it would close)
+# is a deferred, separately-predicted change, not migration drift.
+# Income-statement + cash-flow tables serve both the CurrentYTDDuration and
+# Prior1YTDDuration reads; balance-sheet tables read CurrentQuarterInstant.
+_YTD_TIERS = {
+    'revenue_ytd': (Tier(_chain('net_sales')),),
+    'operating_profit_ytd': (Tier(_chain('operating_income')),),
+    'ordinary_profit_ytd': (Tier(_chain('ordinary_income')),),
+    'net_income_ytd': (Tier(_chain('net_income')),),
+}
+_CF_TIERS = {
+    'operating_cash_flow_ytd': (Tier(_chain('operating_cf')),),
+    'investing_cash_flow_ytd': (Tier(_chain('investing_cf')),),
+    'financing_cash_flow_ytd': (Tier(_chain('financing_cf')),),
+}
+_INSTANT_TIERS = {
+    'total_assets': (Tier(_chain('total_assets')),),
+    'net_assets': (Tier(_chain('net_assets')),),
+    'total_liabilities': (Tier(_chain('total_liabilities')),),
 }
 
 
@@ -194,15 +231,11 @@ def parse_quarterly_report(document=None, *, csv_files=None, doc_id=None, doc_ty
 
     source_files = [f['filename'] for f in csv_files]
 
-    # Helper to get DEI values
-    def get_dei(key: str) -> str | None:
-        return extract_value(csv_files, ELEMENT_MAP.get(key, ''), context_patterns=['FilingDateInstant'])
-
     # Extract DEI elements
-    edinet_code = get_dei('edinet_code')
-    company_name = get_dei('company_name')
-    security_code = get_dei('security_code')
-    is_consolidated_raw = get_dei('is_consolidated')
+    edinet_code = get_dei(csv_files, ELEMENT_MAP, 'edinet_code')
+    company_name = get_dei(csv_files, ELEMENT_MAP, 'company_name')
+    security_code = get_dei(csv_files, ELEMENT_MAP, 'security_code')
+    is_consolidated_raw = get_dei(csv_files, ELEMENT_MAP, 'is_consolidated')
     is_consolidated = (is_consolidated_raw == 'true') if is_consolidated_raw else None
 
     # Format ticker
@@ -211,7 +244,7 @@ def parse_quarterly_report(document=None, *, csv_files=None, doc_id=None, doc_ty
         ticker = f"{security_code.strip()[:4]}.T"
 
     # Extract period
-    fiscal_year_end = parse_date(get_dei('fiscal_year_end'))
+    fiscal_year_end = parse_date(get_dei(csv_files, ELEMENT_MAP, 'fiscal_year_end'))
     filing_date_str = extract_value(csv_files, ELEMENT_MAP['filing_date'])
     filing_date = parse_date(filing_date_str)
 
@@ -220,44 +253,35 @@ def parse_quarterly_report(document=None, *, csv_files=None, doc_id=None, doc_ty
     if filing_date and fiscal_year_end:
         quarter_number = _derive_quarter_number(filing_date, fiscal_year_end)
 
-    # Helper for financial extraction
-    def get_fin(key: str, period: str) -> int | None:
-        element_id = ELEMENT_MAP.get(key, '')
-        if not element_id:
-            return None
-        return extract_financial(csv_files, element_id, period, is_consolidated, IFRS_FALLBACK_MAP)
+    # Financials from the tier tables. Standard is intentionally None-ish
+    # here: quarterly tiers carry no standards scoping (no gate — see the
+    # table comment), so nothing consults it.
+    def fin(tiers, period):
+        hit = resolve_tiers(csv_files, tiers, standard=None, period=period,
+                            is_consolidated=is_consolidated)
+        return hit.value if hit else None
 
-    # Income Statement (Current YTD)
-    revenue_ytd = get_fin('net_sales', 'CurrentYTDDuration')
-    operating_profit_ytd = get_fin('operating_income', 'CurrentYTDDuration')
-    ordinary_profit_ytd = get_fin('ordinary_income', 'CurrentYTDDuration')
-    net_income_ytd = get_fin('net_income', 'CurrentYTDDuration')
+    fields = {}
+    for name, tiers in _YTD_TIERS.items():
+        fields[name] = fin(tiers, 'CurrentYTDDuration')
+        fields[f'prior_{name}'] = fin(tiers, 'Prior1YTDDuration')
+    for name, tiers in _CF_TIERS.items():
+        fields[name] = fin(tiers, 'CurrentYTDDuration')
+    for name, tiers in _INSTANT_TIERS.items():
+        fields[name] = fin(tiers, 'CurrentQuarterInstant')
 
-    # Income Statement (Prior Year YTD)
-    prior_revenue_ytd = get_fin('net_sales', 'Prior1YTDDuration')
-    prior_operating_profit_ytd = get_fin('operating_income', 'Prior1YTDDuration')
-    prior_ordinary_profit_ytd = get_fin('ordinary_income', 'Prior1YTDDuration')
-    prior_net_income_ytd = get_fin('net_income', 'Prior1YTDDuration')
-
-    # Balance Sheet
-    total_assets = get_fin('total_assets', 'CurrentQuarterInstant')
-    net_assets = get_fin('net_assets', 'CurrentQuarterInstant')
-    total_liabilities = get_fin('total_liabilities', 'CurrentQuarterInstant')
-
-    # Cash Flow
-    operating_cf = get_fin('operating_cf', 'CurrentYTDDuration')
-    investing_cf = get_fin('investing_cf', 'CurrentYTDDuration')
-    financing_cf = get_fin('financing_cf', 'CurrentYTDDuration')
-
-    # Per-share metrics
+    # Per-share metrics. coerce_numeric_value nulls the full dash-family
+    # marker set (incl. '―'/'—' — the local tuple this replaced); the
+    # guarded Decimal keeps the legacy silent-None on non-numeric strings.
     patterns = get_context_patterns(is_consolidated, 'CurrentYTDDuration')
-    eps_str = extract_value(csv_files, ELEMENT_MAP['eps_basic'], context_patterns=patterns)
+    eps_str = coerce_numeric_value(extract_value(
+        csv_files, ELEMENT_MAP['eps_basic'], context_patterns=patterns))
     eps_basic = None
-    if eps_str and eps_str not in ('－', '―', '-', '—'):
+    if eps_str:
         try:
             eps_basic = Decimal(eps_str)
-        except:
-            pass
+        except ArithmeticError:
+            eps_basic = None
 
     # Ratios
     patterns = get_context_patterns(is_consolidated, 'CurrentQuarterInstant')
@@ -287,27 +311,9 @@ def parse_quarterly_report(document=None, *, csv_files=None, doc_id=None, doc_ty
         quarter_number=quarter_number,
         filing_date=filing_date,
 
-        # Income Statement (Current YTD)
-        revenue_ytd=revenue_ytd,
-        operating_profit_ytd=operating_profit_ytd,
-        ordinary_profit_ytd=ordinary_profit_ytd,
-        net_income_ytd=net_income_ytd,
-
-        # Income Statement (Prior Year YTD)
-        prior_revenue_ytd=prior_revenue_ytd,
-        prior_operating_profit_ytd=prior_operating_profit_ytd,
-        prior_ordinary_profit_ytd=prior_ordinary_profit_ytd,
-        prior_net_income_ytd=prior_net_income_ytd,
-
-        # Balance Sheet
-        total_assets=total_assets,
-        net_assets=net_assets,
-        total_liabilities=total_liabilities,
-
-        # Cash Flow
-        operating_cash_flow_ytd=operating_cf,
-        investing_cash_flow_ytd=investing_cf,
-        financing_cash_flow_ytd=financing_cf,
+        # Financials (tier tables): income statement current + prior YTD,
+        # balance sheet, cash flow
+        **fields,
 
         # Per-Share
         eps_basic_ytd=eps_basic,
