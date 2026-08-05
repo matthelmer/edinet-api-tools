@@ -1,0 +1,61 @@
+要素ID	項目名	コンテキストID	相対年度	連結・個別	期間・時点	ユニットID	単位	値
+jpdei_cor:NumberOfSubmissionDEI	提出回数、DEI	FilingDateInstant	提出日時点	その他	時点	pure		1
+jptoo-tor_cor:NumberOfVotingRightsRepresentedByShareCertificatesEtcOwnedByTenderOfferorAsOfFilingDateA	報告書提出日現在における公開買付者の所有株券等に係る議決権の数（個） (a)	FilingDateInstant	提出日時点	その他	時点	pure		60694
+jptoo-tor_cor:AmongANumberOfVotingRightsRepresentedByResidualSharesEtcB	aのうち潜在株券等に係る議決権の数（個） (b)	FilingDateInstant	提出日時点	その他	時点	pure		－
+jptoo-tor_cor:AmongBNumberOfVotingRightsRepresentedByTrustBeneficiaryRightsAndDepositoryReceiptsOfStocksEtcWhichRepresentRightsOfStocksC	bのうち株券の権利を表示する株券等信託受益証券及び株券等預託証券に係る議決権の数（個） (c)	FilingDateInstant	提出日時点	その他	時点	pure		－
+jptoo-tor_cor:NumberOfVotingRightsRepresentedByShareCertificatesEtcOwnedBySpecialInterestPartiesD	報告書提出日現在における特別関係者の所有株券等に係る議決権の数（個） (d)	FilingDateInstant	提出日時点	その他	時点	pure		16298
+jptoo-tor_cor:AmongDNumberOfVotingRightsRepresentedByResidualSharesEtcE	dのうち潜在株券等に係る議決権の数（個） (e)	FilingDateInstant	提出日時点	その他	時点	pure		－
+jptoo-tor_cor:AmongENumberOfVotingRightsRepresentedByTrustBeneficiaryRightsAndDepositoryReceiptsOfStocksEtcWhichRepresentRightsOfStocksF	eのうち株券の権利を表示する株券等信託受益証券及び株券等預託証券に係る議決権の数（個） (f)	FilingDateInstant	提出日時点	その他	時点	pure		－
+jptoo-tor_cor:NumberNumberOfVotingRightsOwnedByAllShareholdersEtcOfSubjectCompanyG	個数、対象者の総株主等の議決権の数 (g)	FilingDateInstant	提出日時点	その他	時点	pure		108857
+jptoo-tor_cor:HoldingRatioOfShareCertificatesEtcAfterPurchaseEtc	買付け等後における株券等所有割合 ((a＋d)／(g＋(b－c)＋(e－f))×100)（％）	FilingDateInstant	提出日時点	その他	時点	pure		0.7039
+jptoo-tor_cor:DocumentTitleCoverPage	提出書類、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	公開買付報告書
+jptoo-tor_cor:PlaceOfFilingCoverPage	提出先、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	関東財務局長
+jptoo-tor_cor:FilingDateCoverPage	提出日、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	2021-04-16
+jptoo-tor_cor:FullNameOrNameOfFilerCoverPage	報告者の氏名又は名称、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	ＳＫＴホールディングス株式会社
+jptoo-tor_cor:ResidentialAddressOrLocationOfFilerCoverPage	報告者の住所又は所在地、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	東京都千代田区大手町一丁目５番１号
+jptoo-tor_cor:NearestPlaceOfContactCoverPage	最寄りの連絡場所、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	東京都千代田区大手町一丁目５番１号
+jptoo-tor_cor:TelephoneNumberCoverPage	電話番号、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	03-6206-3210（代表）
+jptoo-tor_cor:NameOfContactPersonCoverPage	事務連絡者氏名、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	鷹岡　宏治
+jptoo-tor_cor:NameOfLegalRepresentativeCoverPageNA	代理人の氏名又は名称、表紙（該当なし）	FilingDateInstant	提出日時点	その他	時点	－	－	該当事項はありません。
+jptoo-tor_cor:ResidentialAddressOrLocationOfLegalRepresentativeCoverPageNA	代理人の住所又は所在地、表紙（該当なし）	FilingDateInstant	提出日時点	その他	時点	－	－	該当事項はありません。
+jptoo-tor_cor:NearestPlaceOfContactLegalRepresentativeCoverPageNA	最寄りの連絡場所、代理人、表紙（該当なし）	FilingDateInstant	提出日時点	その他	時点	－	－	該当事項はありません。
+jptoo-tor_cor:TelephoneNumberLegalRepresentativeCoverPageNA	電話番号、代理人、表紙（該当なし）	FilingDateInstant	提出日時点	その他	時点	－	－	該当事項はありません。
+jptoo-tor_cor:NameOfContactPersonLegalRepresentativeCoverPageNA	事務連絡者氏名、代理人、表紙（該当なし）	FilingDateInstant	提出日時点	その他	時点	－	－	該当事項はありません。
+jptoo-tor_cor:PlaceForPublicInspectionCoverPageTextBlock	縦覧に供する場所、表紙 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	ＳＫＴホールディングス株式会社（東京都千代田区大手町一丁目５番１号）株式会社東京証券取引所（東京都中央区日本橋兜町２番１号）
+jptoo-tor_cor:NotesCoverPageTextBlock	脚注、表紙 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	　（注１）　本書中の「公開買付者」とは、ＳＫＴホールディングス株式会社をいいます。　（注２）　本書中の「対象者」とは、昭光通商株式会社をいいます。　（注３）　本書中の記載において計数が四捨五入又は切捨てされている場合、合計として記載される数値は必ずしも計数の総和と一致しません。　（注４）　本書中の「法」とは、金融商品取引法（昭和23年法律第25号。その後の改正を含みます。）をいいます。　（注５）　本書中の「令」とは、金融商品取引法施行令（昭和40年政令第321号。その後の改正を含みます。）をいいます。　（注６）　本書中の「府令」とは、発行者以外の者による株券等の公開買付けの開示に関する内閣府令（平成２年大蔵省令第38号。その後の改正を含みます。）をいいます。　（注７）　本書中の「株券等」とは、株式に係る権利をいいます。　（注８）　本書において、「営業日」とは、行政機関の休日に関する法律（昭和63年法律第91号。その後の改正を含みます。）第１条第１項各号に掲げる日を除いた日を意味します。　（注９）　本書において、日数又は日時の記載は、特段の記載がない限り、日本国における日数又は日時を意味します。　（注10）　本書の提出に係る公開買付け（以下「本公開買付け」といいます。）は、法で定められた手続及び情報開示基準に従い実施されるものです。
+jpdei_cor:EDINETCodeDEI	EDINETコード、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	E36449
+jpdei_cor:FundCodeDEI	ファンドコード、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:SecurityCodeDEI	証券コード、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:FilerNameInJapaneseDEI	提出者名（日本語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	ＳＫＴホールディングス株式会社
+jpdei_cor:FilerNameInEnglishDEI	提出者名（英語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	SKT Holdings Ltd.,
+jpdei_cor:FundNameInJapaneseDEI	ファンド名称（日本語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:FundNameInEnglishDEI	ファンド名称（英語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CabinetOfficeOrdinanceDEI	府令、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	発行者以外の者による株券等の公開買付けの開示に関する内閣府令
+jpdei_cor:DocumentTypeDEI	様式、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	第六号様式
+jpdei_cor:AccountingStandardsDEI	会計基準、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:WhetherConsolidatedFinancialStatementsArePreparedDEI	連結決算の有無、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI	別記事業（連結）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:IndustryCodeWhenFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI	別記事業（個別）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CurrentFiscalYearStartDateDEI	当事業年度開始日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CurrentPeriodEndDateDEI	当会計期間終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:TypeOfCurrentPeriodDEI	当会計期間の種類、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CurrentFiscalYearEndDateDEI	当事業年度終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:PreviousFiscalYearStartDateDEI	前事業年度開始日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:ComparativePeriodEndDateDEI	比較対象会計期間終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:PreviousFiscalYearEndDateDEI	前事業年度終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:NextFiscalYearStartDateDEI	次の事業年度開始日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:EndDateOfQuarterlyOrSemiAnnualPeriodOfNextFiscalYearDEI	次の四半期又は中間期の会計期間終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:AmendmentFlagDEI	訂正の有無、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	false
+jpdei_cor:IdentificationOfDocumentSubjectToAmendmentDEI	訂正対象書類の書類管理番号、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:ReportAmendmentFlagDEI	記載事項訂正のフラグ、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	false
+jpdei_cor:XBRLAmendmentFlagDEI	XBRL訂正のフラグ、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	false
+jptoo-tor_cor:NameOfSubjectCompanyTextBlock	対象者名 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（１）【対象者名】昭光通商株式会社 
+jptoo-tor_cor:ClassesOfShareCertificatesEtcRelatedToPurchaseEtcTextBlock	買付け等に係る株券等の種類 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（２）【買付け等に係る株券等の種類】普通株式 
+jptoo-tor_cor:TenderOfferPeriodTextBlock	公開買付期間 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（３）【公開買付期間】2021年３月５日（金曜日）から2021年４月15日（木曜日）まで（30営業日） 
+jptoo-tor_cor:SuccessOrFailureOfTenderOfferTextBlock	公開買付けの成否 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（１）【公開買付けの成否】　本公開買付けにおいては、本公開買付けに応じて応募された株券等（以下「応募株券等」といいます。）の総数が買付予定数の下限（5,662,898株）に満たない場合は、応募株券等の全部の買付け等を行わない旨の条件を付しておりましたが、応募株券等の総数（6,069,412株）が買付予定数の下限（5,662,898株）以上となりましたので、公開買付開始公告及び公開買付届出書に記載のとおり、応募株券等の全部の買付け等を行います。 
+jptoo-tor_cor:DateOfOfficialAnnouncementOfTenderOfferAndNameOfNewspaperContainingItTextBlock	公開買付けの結果の公告日及び公告掲載新聞名 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（２）【公開買付けの結果の公告日及び公告掲載新聞名】　法第27条の13第１項に基づき、令第９条の４及び府令第30条の２に規定する方法により、2021年４月16日に株式会社東京証券取引所において、本公開買付けの結果を報道機関に公表いたしました。 
+jptoo-tor_cor:NumberOfShareCertificatesEtcAcquiredByPurchaseEtcTextBlock	買付け等を行った株券等の数 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（３）【買付け等を行った株券等の数】株券等の種類株式に換算した応募数株式に換算した買付数株券6,069,412（株）6,069,412（株）新株予約権証券－－新株予約権付社債券－－株券等信託受益証券（　　　）－－株券等預託証券（　　　　　）－－合計6,069,4126,069,412（潜在株券等の数の合計）－（－）
+jptoo-tor_cor:HoldingRatioOfShareCertificatesEtcAfterPurchaseEtcTextBlock	買付け等を行った後における株券等所有割合 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	（４）【買付け等を行った後における株券等所有割合】区分議決権の数報告書提出日現在における公開買付者の所有株券等に係る議決権の数（個）(a)60,694ａのうち潜在株券等に係る議決権の数（個）(b)－ｂのうち株券の権利を表示する株券等信託受益証券及び株券等預託証券に係る議決権の数（個）(c)－報告書提出日現在における特別関係者の所有株券等に係る議決権の数（個）(d)16,298ｄのうち潜在株券等に係る議決権の数（個）(e)－ｅのうち株券の権利を表示する株券等信託受益証券及び株券等預託証券に係る議決権の数（個）(f)－対象者の総株主等の議決権の数（2020年12月31日現在）（個）(g)108,857買付け等後における株券等所有割合((a＋d)／(g＋(b－c)＋(e－f))×100)（％）70.39　（注１）　「対象者の総株主等の議決権の数(g)」は、対象者が2021年３月30日に提出した第101期有価証券報告書（以下「対象者有価証券報告書」といいます。）記載の総株主等の議決権です。但し、本公開買付けにおいては単元未満株式についても買付け等の対象としていたため、「買付け等後における株券等所有割合」の計算においては、対象者有価証券報告書に記載された2020年12月31日現在の発行済株式総数（11,271,468株）から同日現在対象者が所有する自己株式（332,898株）を控除した株式数（10,938,570株）に係る議決権の数（109,385個）を分母として計算しております。　（注２）　「買付け等後における株券等所有割合」については、小数点以下第三位を四捨五入しております。 
+jptoo-tor_cor:BaseDateNumberOfVotingRightsOwnedByAllShareholdersEtcOfSubjectCompanyG	基準日、対象者の総株主等の議決権の数 (g)	FilingDateInstant	提出日時点	その他	時点	－	－	2020-12-31
+jptoo-tor_cor:NotesHoldingRatioOfShareCertificatesEtcAfterPurchaseEtcTextBlock	脚注、買付け等を行った後における株券等所有割合 [テキストブロック]	FilingDateInstant	提出日時点	その他	時点	－	－	　（注１）　「対象者の総株主等の議決権の数(g)」は、対象者が2021年３月30日に提出した第101期有価証券報告書（以下「対象者有価証券報告書」といいます。）記載の総株主等の議決権です。但し、本公開買付けにおいては単元未満株式についても買付け等の対象としていたため、「買付け等後における株券等所有割合」の計算においては、対象者有価証券報告書に記載された2020年12月31日現在の発行済株式総数（11,271,468株）から同日現在対象者が所有する自己株式（332,898株）を控除した株式数（10,938,570株）に係る議決権の数（109,385個）を分母として計算しております。　（注２）　「買付け等後における株券等所有割合」については、小数点以下第三位を四捨五入しております。
+jptoo-tor_cor:CalculationForPurchaseEtcByMethodOfProportionalDistributionNA	あん分比例方式により買付け等を行う場合の計算（該当なし）	FilingDateInstant	提出日時点	その他	時点	－	－	　該当事項はありません。

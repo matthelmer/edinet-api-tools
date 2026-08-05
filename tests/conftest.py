@@ -47,6 +47,12 @@ def load_semi_annual_fixture(name: str) -> list:
     return load_fixture('semi_annual', name)
 
 
+def load_tender_fixture(name: str) -> list:
+    """Load tests/fixtures/tender/<name>.csv. Import as
+    `from tests.conftest import load_tender_fixture`."""
+    return load_fixture('tender', name)
+
+
 @pytest.fixture(autouse=True)
 def set_test_env_vars(request):
     """Scrub credentials for the duration of every non-integration test.

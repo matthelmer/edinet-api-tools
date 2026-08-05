@@ -469,12 +469,17 @@ class TestParseTenderOfferResultReport:
         report = parse_tender_offer_report(_make_family_doc(rows=rows))
         assert report.holding_ratio_after == Decimal('0.9876')
 
-    def test_extracts_purchase_ratio(self):
+    def test_purchase_ratio_stays_none_no_backing_element(self):
+        """purchase_ratio was retired (v0.8.0 stage-5 Task 10): a full-namespace
+        census found no numeric ratio-of-shares-purchased element in any real
+        results filing. It must stay None even when an unrelated ratio row is
+        present -- proving the field is never populated, not merely untested."""
         rows = [
-            _make_csv_row(REPORT_MAP['purchase_ratio'], 'FilingDateInstant', '0.4784'),
+            _make_csv_row('jptoo-tor_cor:RatioOfNumberOfVotingRightsRepresentedByShareCertificatesEtcPurchasedAmongNumberOfVotingRightsOwnedByAllShareholdersEtcOfSubjectCompany',
+                          'FilingDateInstant', '0.4784'),
         ]
         report = parse_tender_offer_report(_make_family_doc(rows=rows))
-        assert report.purchase_ratio == Decimal('0.4784')
+        assert report.purchase_ratio is None
 
     def test_extracts_filing_date(self):
         rows = [
