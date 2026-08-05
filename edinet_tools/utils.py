@@ -3,12 +3,7 @@ import os
 import csv
 import re
 import chardet
-import tempfile
-import zipfile
 import logging
-from typing import Dict, Any, Optional
-
-from .processors import process_raw_csv_data
 
 logger = logging.getLogger(__name__)
 
@@ -88,77 +83,4 @@ def clean_text(text):
     # replace specific Japanese punctuation with Western equivalents for consistency
     # return text.replace('。', '. ').replace('、', ', ')
     return text
-
-
-# ZIP file processing
-def process_zip_file(path_to_zip_file: str, doc_id: str, doc_type_code: str) -> Optional[Dict[str, Any]]:
-    """
-    Extract CSVs from a ZIP file, read them, and process into structured data
-    using the appropriate document processor.
-
-    :param path_to_zip_file: Path to the downloaded ZIP file.
-    :param doc_id: EDINET document ID.
-    :param doc_type_code: EDINET document type code.
-    :return: Structured dictionary of the document's data, or None if processing failed.
-    """
-    raw_csv_data = []
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            try:
-                with zipfile.ZipFile(path_to_zip_file, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-                logger.debug(f"Extracted {os.path.basename(path_to_zip_file)} to {temp_dir}")
-            except zipfile.BadZipFile as e:
-                logger.error(f"Bad ZIP file: {path_to_zip_file}. Error: {e}")
-                return None
-            except Exception as e:
-                logger.error(f"Error extracting {os.path.basename(path_to_zip_file)}: {e}")
-                return None
-
-            # Find and read all CSV files within the extracted structure
-            csv_file_paths = []
-            for root, dirs, files in os.walk(temp_dir):
-                 # Exclude __MACOSX directory if present
-                 if '__MACOSX' in dirs:
-                     dirs.remove('__MACOSX')
-                 for file in files:
-                     if file.endswith('.csv'):
-                         csv_file_paths.append(os.path.join(root, file))
-
-            if not csv_file_paths:
-                logger.warning(f"No CSV files found in extracted zip: {os.path.basename(path_to_zip_file)}")
-                return None
-
-            for file_path in csv_file_paths:
-                # Skip auditor report files (start with 'jpaud')
-                if os.path.basename(file_path).startswith('jpaud'):
-                     logger.debug(f"Skipping auditor report file: {os.path.basename(file_path)}")
-                     continue
-
-                csv_records = read_csv_file(file_path)
-                if csv_records is not None:
-                    raw_csv_data.append({
-                        'filename': os.path.basename(file_path),
-                        'data': csv_records
-                    })
-
-            if not raw_csv_data:
-                 logger.warning(f"No valid data extracted from CSVs in {os.path.basename(path_to_zip_file)}")
-                 return None
-
-            # Dispatch raw data to appropriate document processor
-            structured_data = process_raw_csv_data(raw_csv_data, doc_id, doc_type_code, temp_dir)
-
-            if structured_data:
-                 logger.info(f"Successfully processed structured data for {os.path.basename(path_to_zip_file)}")
-                 return structured_data
-            else:
-                 logger.warning(f"Document processor returned no data for {os.path.basename(path_to_zip_file)}")
-                 return None
-
-    except Exception as e:
-        logger.error(f"Critical error processing zip file {path_to_zip_file}: {e}")
-        # traceback.print_exc() # Uncomment for detailed traceback during debugging
-        return None
-
 
