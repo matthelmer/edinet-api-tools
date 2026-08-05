@@ -24,7 +24,7 @@ def set_test_env_vars(request):
     Integration tests (@pytest.mark.integration) keep the real
     EDINET_API_KEY so they can hit the live API; everything else gets a
     placeholder so any accidental real-network code path fails on auth
-    rather than silently hitting prod.
+    rather than silently hitting the live API.
     """
     is_integration_test = request.node.get_closest_marker('integration') is not None
 

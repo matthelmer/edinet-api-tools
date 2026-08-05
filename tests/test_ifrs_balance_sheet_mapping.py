@@ -96,7 +96,8 @@ def test_ifrs_summary_bps_still_reads_per_share_element():
 #   - ShareholdersEquity (株主資本): a sub-component of net assets (owners'
 #     capital only, excludes OCI/NCI/subscription rights), also non-consolidated.
 #   - StockholdersEquityPerShareOfCommonStockUSGAAPSummaryOfBusinessResults:
-#     per-share BPS, wrong grain entirely (already used for net_assets_per_share).
+#     per-share BPS, a per-share figure rather than an aggregate total
+#     (already used for net_assets_per_share).
 
 def test_ifrs_net_assets_recovers_total_equity_by_suffix():
     # S100CUBT (IFRS, net_assets absent from the typed summary): TotalEquityIFRSSummaryOfBusinessResults

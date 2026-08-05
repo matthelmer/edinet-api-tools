@@ -3,8 +3,9 @@
 IFRS filers report combined bonds-and-borrowings and pure-borrowings lines
 that have NO clean 1:1 mapping onto the J-GAAP debt fields
 (short_term_loans_payable / long_term_loans_payable / bonds_payable /
-current_portion_long_term_loans_payable). Two grains get two names: they
-become new `*_ifrs` fields, never coerced onto the J-GAAP fields above.
+current_portion_long_term_loans_payable). Distinct line-item definitions get
+distinct names: they become new `*_ifrs` fields, never coerced onto the
+J-GAAP fields above.
 
 Corpus survey of real filings (2026-08-01): 2,331 IFRS securities-report filings
 rows. Element frequency: BondsAndBorrowingsCLIFRS 842, BondsAndBorrowingsNCLIFRS

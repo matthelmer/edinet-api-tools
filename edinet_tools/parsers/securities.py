@@ -399,7 +399,8 @@ class SecuritiesReport(ParsedReport):
 
     # IFRS balance-sheet debt (v0.8.0+). IFRS filers report combined
     # bonds-and-borrowings lines with no clean mapping onto the J-GAAP debt
-    # fields above — two grains get two names (never coerced onto each other).
+    # fields above — distinct line-item definitions get distinct fields
+    # (never coerced onto each other).
     bonds_and_borrowings_current_ifrs: int | None = None
     bonds_and_borrowings_noncurrent_ifrs: int | None = None
     borrowings_current_ifrs: int | None = None
