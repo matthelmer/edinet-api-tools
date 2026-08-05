@@ -23,19 +23,28 @@ EDINET_CSV_COLS = ['要素ID', '項目名', 'コンテキストID', '相対年�
                    '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
 
 
-def load_securities_fixture(name: str) -> list:
-    """Load tests/fixtures/securities/<name>.csv (a real-filing TSV) into
-    the csv_files structure the parsers accept.
-
-    One shared implementation — this loader used to be re-implemented in
-    nine test modules (consolidated 0.8.0 stage-5, Verification Contract B).
-    Import as `from tests.conftest import load_securities_fixture`.
-    """
-    p = Path(__file__).parent / 'fixtures' / 'securities' / f'{name}.csv'
+def load_fixture(subdir: str, name: str) -> list:
+    """Load tests/fixtures/<subdir>/<name>.csv (a real-filing TSV) into the
+    csv_files structure the parsers accept. The shared implementation behind
+    the per-doc-type loaders below (consolidated 0.8.0 stage-5, Verification
+    Contract B)."""
+    p = Path(__file__).parent / 'fixtures' / subdir / f'{name}.csv'
     with open(p, encoding='utf-8') as fh:
         rows = list(_csv.reader(fh, delimiter='\t'))
     return [{'filename': f'{name}.csv',
              'data': [dict(zip(EDINET_CSV_COLS, r)) for r in rows[1:]]}]
+
+
+def load_securities_fixture(name: str) -> list:
+    """Load tests/fixtures/securities/<name>.csv. Import as
+    `from tests.conftest import load_securities_fixture`."""
+    return load_fixture('securities', name)
+
+
+def load_semi_annual_fixture(name: str) -> list:
+    """Load tests/fixtures/semi_annual/<name>.csv. Import as
+    `from tests.conftest import load_semi_annual_fixture`."""
+    return load_fixture('semi_annual', name)
 
 
 @pytest.fixture(autouse=True)

@@ -6,7 +6,6 @@ Supports both corporate and fund reports with IFRS fallback.
 """
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Optional
 
 from .base import ParsedReport
 from .extraction import (
@@ -17,6 +16,7 @@ from .extraction import (
     categorize_elements,
     parse_date,
 )
+from .validation import Bound, Identity, apply_validation
 
 
 # XBRL Element ID mappings for Doc 160 (Semi-Annual Reports)
@@ -29,6 +29,8 @@ ELEMENT_MAP = {
     'period_start': 'jpdei_cor:CurrentFiscalYearStartDateDEI',
     'period_end': 'jpdei_cor:CurrentPeriodEndDateDEI',
     'submission_date': 'jpdei_cor:DateOfSubmissionDEI',
+    'accounting_standard': 'jpdei_cor:AccountingStandardsDEI',
+    'is_consolidated': 'jpdei_cor:WhetherConsolidatedFinancialStatementsArePreparedDEI',
 
     # === Balance Sheet Elements ===
     'assets': 'jppfs_cor:Assets',
@@ -65,6 +67,8 @@ class SemiAnnualReport(ParsedReport):
     filer_edinet_code: str | None = None
     fund_code: str | None = None
     fund_name: str | None = None
+    accounting_standard: str | None = None
+    is_consolidated: bool | None = None
 
     # Period
     period_start: date | None = None
@@ -119,36 +123,77 @@ def _chain(key: str):
     return (element_id, fallback)
 
 
-# Per-field tier tables (v0.8.0 stage-5 migration) — STRUCTURAL migration
-# only. These resolve with period=None: context-BLIND, first match in file
-# order, exactly the legacy behavior. That blindness is a known defect
-# (a Prior2 or parent-context row earlier in the file wins over the
-# current period); the ratified semi-annual context fix will replace
-# period=None with real period/consolidation discipline as its own
-# separately-predicted change — do NOT "fix" it in passing here.
-_FIELD_TIERS = {
+# Per-field tier tables (v0.8.0 stage-5 Task 9 context fix). Split by
+# instant vs. duration context: balance-sheet fields read the doc's current
+# INSTANT token, income-statement fields read its current DURATION token
+# (see _detect_period_tokens). No per-standard scoping (no C1-style
+# IFRS-preference reordering) -- each field is one element with at most one
+# IFRS fallback, exactly the pre-migration extract_financial waterfall.
+_INSTANT_FIELD_TIERS = {
     'total_assets': (Tier(_chain('assets')),),
     'current_assets': (Tier(_chain('current_assets')),),
     'total_liabilities': (Tier(_chain('liabilities')),),
     'current_liabilities': (Tier(_chain('current_liabilities')),),
     'net_assets': (Tier(_chain('net_assets')),),
+}
+_DURATION_FIELD_TIERS = {
     'operating_income': (Tier(_chain('operating_income')),),
     'ordinary_income': (Tier(_chain('ordinary_income')),),
     'profit_loss': (Tier(_chain('profit_loss')),),
 }
 
 
-def _extract_financial(csv_files: list, element_id: str) -> Optional[int]:
-    """Legacy-shaped helper (kept for tests/back-compat): one primary
-    element with its IFRS fallback, resolved context-blind through the
-    tier core — identical semantics to the pre-tier implementation,
-    including the null-marker normalization that lets the IFRS fallback
-    fire when the primary carries '－'."""
-    fallback = IFRS_FALLBACK_MAP.get(element_id)
-    chain = (element_id, fallback) if fallback else element_id
-    hit = resolve_tiers(csv_files, (Tier(chain),), standard=None,
-                        period=None, is_consolidated=None)
-    return hit.value if hit else None
+def detect_period_tokens(csv_files: list) -> tuple[str, str]:
+    """Doc-level period-token regime: (instant_token, duration_token).
+
+    Two vocabularies coexist in the corpus: the -ssr taxonomy's
+    `InterimInstant`/`InterimDuration` (funds always; banks/特定事業会社
+    throughout; corporates from FY2025) and the FY2024 transitional -q2r
+    taxonomy's `CurrentQuarterInstant`/`CurrentYTDDuration`. Rule
+    (corpus-validated, unambiguous on every sampled document): prefer the
+    Interim* vocabulary if ANY context id in the filing contains 'Interim'
+    (current or prior period -- both signal the same regime), else fall
+    back to CurrentQuarter*/CurrentYTD*.
+
+    Public (not `_`-prefixed): the period token is a primitive both this
+    parser and any caller extracting doc-type-specific elements not in
+    ELEMENT_MAP (e.g. a fund's FND balance-sheet elements) need to resolve
+    the same way -- one regime-detection implementation, not a re-derived
+    copy per caller.
+    """
+    for csv_file in csv_files or []:
+        for row in csv_file.get('data', []) or []:
+            if 'Interim' in (row.get('コンテキストID', '') or ''):
+                return 'InterimInstant', 'InterimDuration'
+    return 'CurrentQuarterInstant', 'CurrentYTDDuration'
+
+
+def _net_assets_le_total_assets(na, ta):
+    return na <= ta
+
+
+def _current_le_total_liabilities(cl, tl):
+    return cl <= tl
+
+
+# Modest structural bounds + identities (v0.8.0 stage-5 Task 9), matching
+# the securities-report exemplar's shape: bounds withhold an impossible
+# value (never a claim about what's typical); identities annotate a
+# cross-field inconsistency without emptying either operand.
+SEMI_ANNUAL_BOUNDS = [
+    Bound(field='total_assets', min_value=0),
+    Bound(field='total_liabilities', min_value=0),
+    Bound(field='current_liabilities', min_value=0),
+]
+
+SEMI_ANNUAL_IDENTITIES = [
+    Identity(name='identity:net_assets<=total_assets',
+             operands=('net_assets', 'total_assets'),
+             check=_net_assets_le_total_assets),
+    Identity(name='identity:current_liabilities<=total_liabilities',
+             operands=('current_liabilities', 'total_liabilities'),
+             check=_current_le_total_liabilities),
+]
 
 
 def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_type_code=None) -> SemiAnnualReport:
@@ -188,31 +233,44 @@ def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_
     fund_code = get_dei(csv_files, ELEMENT_MAP, 'fund_code')
     fund_name = get_dei(csv_files, ELEMENT_MAP, 'fund_name')
 
+    # Whitespace-stripped: a handful of real filings tag this DEI value with
+    # trailing tab/whitespace noise ('Japan GAAP' + stray tabs) -- strip
+    # defensively so it matches a standards tuple downstream.
+    accounting_standard_raw = get_dei(csv_files, ELEMENT_MAP, 'accounting_standard')
+    accounting_standard = (accounting_standard_raw.strip()
+                           if accounting_standard_raw else None)
+    is_consolidated_raw = get_dei(csv_files, ELEMENT_MAP, 'is_consolidated')
+    is_consolidated = (is_consolidated_raw == 'true') if is_consolidated_raw else None
+
     # Extract period
     period_start = parse_date(get_dei(csv_files, ELEMENT_MAP, 'period_start'))
     period_end = parse_date(get_dei(csv_files, ELEMENT_MAP, 'period_end'))
     filing_date = parse_date(get_dei(csv_files, ELEMENT_MAP, 'submission_date')) or period_end
 
-    # Financial data from the tier tables — context-blind compatibility
-    # path (period=None); see the _FIELD_TIERS comment.
-    def fin(name):
-        hit = resolve_tiers(csv_files, _FIELD_TIERS[name], standard=None,
-                            period=None, is_consolidated=None)
+    # Financial data from the tier tables — context-aware (v0.8.0 stage-5
+    # Task 9): per-document period-token regime + strict bare-context-only
+    # reads when consolidated (OKWAVE rule — see detect_period_tokens and
+    # get_context_patterns).
+    instant_period, duration_period = detect_period_tokens(csv_files)
+
+    def fin(name, tiers, period):
+        hit = resolve_tiers(csv_files, tiers, standard=accounting_standard,
+                            period=period, is_consolidated=is_consolidated)
         return hit.value if hit else None
 
-    total_assets = fin('total_assets')
-    current_assets = fin('current_assets')
-    total_liabilities = fin('total_liabilities')
-    current_liabilities = fin('current_liabilities')
-    net_assets = fin('net_assets')
-    operating_income = fin('operating_income')
-    ordinary_income = fin('ordinary_income')
-    profit_loss = fin('profit_loss')
+    total_assets = fin('total_assets', _INSTANT_FIELD_TIERS['total_assets'], instant_period)
+    current_assets = fin('current_assets', _INSTANT_FIELD_TIERS['current_assets'], instant_period)
+    total_liabilities = fin('total_liabilities', _INSTANT_FIELD_TIERS['total_liabilities'], instant_period)
+    current_liabilities = fin('current_liabilities', _INSTANT_FIELD_TIERS['current_liabilities'], instant_period)
+    net_assets = fin('net_assets', _INSTANT_FIELD_TIERS['net_assets'], instant_period)
+    operating_income = fin('operating_income', _DURATION_FIELD_TIERS['operating_income'], duration_period)
+    ordinary_income = fin('ordinary_income', _DURATION_FIELD_TIERS['ordinary_income'], duration_period)
+    profit_loss = fin('profit_loss', _DURATION_FIELD_TIERS['profit_loss'], duration_period)
 
     # Categorize all elements
     raw_fields, text_blocks, unmapped_fields, raw_facts = categorize_elements(csv_files, ELEMENT_MAP)
 
-    return SemiAnnualReport(
+    report = SemiAnnualReport(
         doc_id=doc_id,
         doc_type_code=doc_type_code,
         source_files=source_files,
@@ -226,6 +284,8 @@ def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_
         filer_edinet_code=edinet_code or getattr(document, 'filer_edinet_code', None),
         fund_code=fund_code,
         fund_name=fund_name,
+        accounting_standard=accounting_standard,
+        is_consolidated=is_consolidated,
 
         # Period
         period_start=period_start,
@@ -244,3 +304,5 @@ def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_
         ordinary_income=ordinary_income,
         profit_loss=profit_loss,
     )
+    apply_validation(report, SEMI_ANNUAL_BOUNDS, SEMI_ANNUAL_IDENTITIES)
+    return report
