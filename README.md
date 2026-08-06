@@ -173,30 +173,14 @@ report.text_blocks  # Narrative text block content
 
 ### Ownership basis: owners-only vs. total
 
-Consolidated financial statements sometimes include subsidiaries that
-aren't 100% owned — outside investors hold a stake directly in the
-subsidiary, not in the parent company. Accounting rules (Japanese GAAP,
-IFRS, and US-GAAP alike) call that outside stake a **non-controlling
-interest** (NCI; 非支配株主持分, sometimes "minority interest"). Because of
-that, a single "net income" or "net assets" figure is ambiguous on its
-own — does it include the outside investors' share, or only the piece
-that belongs to the parent company's own shareholders?
-
-edinet-tools never picks one silently. Every field where this is
-ambiguous ships as an explicit pair:
-
-- **`*_owners`** — attributable to the owners of the parent (親会社株主に帰属する /
-  the IFRS and US-GAAP "attributable to [Company]" line). This is
-  normally the headline figure in an earnings release, and the number
-  EPS is computed from.
-- **`*_total`** — includes the non-controlling interests' share too.
-
-The two usually move together, but don't have to: if a subsidiary's
-minority shareholders happen to lose money in a period, the parent's
-owners-only figure can come out *higher* than the total-including-everyone
-figure. That's a real, correctly-filed result, not a bug — so
-edinet-tools never assumes `owners <= total` or the reverse. It ships
-both numbers exactly as filed and leaves the comparison to you.
+A consolidated filer's subsidiaries aren't always 100% owned, so a single
+"net income" or "net assets" figure is ambiguous — does it include the
+outside (non-controlling) investors' share, or only the parent company's
+own shareholders' piece? edinet-tools never picks one silently: every
+field where this is ambiguous ships as an explicit `*_owners` / `*_total`
+pair, both exactly as filed. Full explanation, including the
+`owners <= total` non-assumption and why it matters:
+[docs/ownership-basis.md](docs/ownership-basis.md).
 
 #### Fields
 
