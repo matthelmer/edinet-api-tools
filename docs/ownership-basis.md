@@ -27,24 +27,9 @@ both numbers exactly as filed and leaves the comparison to you. See the
 README's "Known limitations" section for a real-filing example of this
 inversion (HOYA).
 
-## Fields
-
-| Field | Meaning | Notes |
-|---|---|---|
-| `net_assets_owners` | Equity attributable to owners of parent | **J-GAAP: always `None`** — Japanese GAAP never files this as a single element. The filed components are `shareholders_equity` + `valuation_translation_adjustments` (below). IFRS and US-GAAP filers populate it directly. |
-| `net_assets_total` | Net assets including non-controlling interests (純資産) | Filed for all three standards. |
-| `net_income_owners` | Profit attributable to owners of parent (親会社株主に帰属する当期純利益) | Filed for all three standards. |
-| `net_income_total` | Profit including non-controlling interests' share | **US-GAAP: structurally `None`** for nearly all filers — no total-basis net-income element exists in that taxonomy tier. |
-| `prior_net_income_owners` / `prior_net_income_total` | Same split, prior fiscal year | Same per-standard routing, read from the prior-year XBRL context. |
-| `shareholders_equity` | 株主資本 — filed J-GAAP component | J-GAAP only. Never summed into `net_assets_owners` — it's a fact as filed, not a derived aggregate. |
-| `valuation_translation_adjustments` | 評価換算差額等 — filed J-GAAP component | J-GAAP only, same rule as above. |
-| `non_controlling_interests` | 非支配株主持分 (NCI) | Filed for all three standards; `None` when a filer has no minority-owned subsidiaries. |
-
 If you need an owners-only equity figure for a J-GAAP filer, compute it
-yourself from the two filed components
-(`shareholders_equity + valuation_translation_adjustments`) — edinet-tools
-ships the facts as filed and leaves that arithmetic to you.
-
-Upgrading from before 0.8.0? `net_assets`, `net_income`, and
-`prior_net_income` were removed — see [MIGRATING.md](../MIGRATING.md) for
-the full field-by-field replacement table.
+yourself from the two filed components (`shareholders_equity` +
+`valuation_translation_adjustments`) — edinet-tools ships the facts as
+filed and leaves that arithmetic to you. Both components, and the full
+`*_owners` / `*_total` field list with per-standard notes, are in the
+README's "Ownership basis" → "Fields" table.
