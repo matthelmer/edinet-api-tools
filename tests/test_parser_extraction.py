@@ -1181,13 +1181,19 @@ class TestExtractCsvFromZipEncodingOrder:
     """Regression pin (0.8.0 stage-5, found via the zero-dependency smoke
     test): extract_csv_from_zip's encoding-trial order must try 'utf-8'
     before the 'utf-16' family. utf-16/utf-16le barely validate anything -
-    most even-length byte strings decode "successfully" into mojibake
-    rather than raising - so a non-BOM UTF-8 file tried under utf-16le
-    first can silently collapse into a single garbage row instead of the
-    correct multi-row parse. Every other extraction test in this file
-    builds its fixture via .encode('utf-16le'), matching the first-tried
-    encoding, so this class is the only place a non-BOM UTF-8 input
-    actually exercises the encoding order.
+    an EVEN-length byte string decodes "successfully" into mojibake rather
+    than raising - so a non-BOM UTF-8 file with an even byte count, tried
+    under utf-16le first, can silently collapse into a single garbage row
+    instead of the correct multi-row parse. An ODD byte count is NOT a
+    trigger: utf-16le/utf-16 both reject odd-length input outright
+    (truncated-data UnicodeDecodeError), so decoding falls through to
+    utf-8 correctly regardless of list order - the fixture below asserts
+    its own byte length is even so this test can't silently stop pinning
+    the defect the way a byte-count edit could otherwise cause. Every
+    other extraction test in this file builds its fixture via
+    .encode('utf-16le'), matching the first-tried encoding, so this class
+    is the only place a non-BOM UTF-8 input actually exercises the
+    encoding order.
     """
 
     def test_non_bom_utf8_csv_parses_correctly_not_mojibake(self):
@@ -1201,12 +1207,22 @@ class TestExtractCsvFromZipEncodingOrder:
             ('jpcrp_cor:NetSalesSummaryOfBusinessResults', '売上高',
              'CurrentYearDuration', '', '', '', '', '円', '50000000000'),
         ]
-        csv_content = '\n'.join('\t'.join(r) for r in rows)
+        # Trailing '\n' is load-bearing: it makes the encoded byte count
+        # even, which is what makes utf-16le's decode of this UTF-8 payload
+        # "succeed" (wrongly) instead of raising - the actual triggering
+        # condition for the bug this test pins. Asserted explicitly below.
+        csv_content = '\n'.join('\t'.join(r) for r in rows) + '\n'
+        encoded = csv_content.encode('utf-8')
+        assert len(encoded) % 2 == 0, (
+            "fixture byte length must be EVEN to trigger the utf-16le "
+            "false-positive-decode defect this test pins - see class "
+            "docstring"
+        )
 
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w') as zf:
             # Plain UTF-8, no BOM - the class that previously mojibaked.
-            zf.writestr('XBRL_TO_CSV/test.csv', csv_content.encode('utf-8'))
+            zf.writestr('XBRL_TO_CSV/test.csv', encoded)
 
         csv_files = extract_csv_from_zip(zip_buffer.getvalue())
 

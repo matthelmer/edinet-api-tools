@@ -17,11 +17,23 @@ from edinet_tools.api import (
 
 
 def _load_api_key_or_skip() -> str:
-    """Load the real EDINET API key, or skip the test if unavailable."""
-    import os
-    from dotenv import load_dotenv
+    """Load the real EDINET API key, or skip the test if unavailable.
 
-    load_dotenv()
+    python-dotenv is optional dev-convenience tooling, not a runtime
+    dependency of edinet-tools (0.8.0 dropped it -- see CHANGELOG). A
+    `pip install -e .[dev]` environment (CI's install path) has no reason
+    to carry it, so this must not hard-fail on import: fall through to
+    reading the environment directly, exactly as a CI runner without a
+    .env file already does.
+    """
+    import os
+
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass  # no dotenv installed -- rely on the environment as-is
+
     api_key = os.environ.get('EDINET_API_KEY')
 
     if not api_key:

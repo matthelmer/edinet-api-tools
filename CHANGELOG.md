@@ -50,6 +50,7 @@
 
 - **Eight-company golden-fixture panel for the ownership-basis split** (Toyota, ITOCHU, HOYA, Kansai Paint, Shimamura, Horii Food Service, Shiga Bank, Komatsu) — J-GAAP, IFRS, and US-GAAP; mega-cap and small-cap; with and without non-controlling interests; a financial-sector filer; and HOYA as the owners-exceeds-total counterexample. Every figure cross-checked to the yen against the issuer's own published results, on both ownership bases where both are published.
 - Test count: 836 → 908 (4 xfailed).
+- **Test count: 1030 → 990 (4 xfailed) across the dependency-retirement work.** The drop is entirely `test_processors.py` (675 lines) and `test_document_processing_core.py` (562 lines) — dedicated test files for the `processors.py` / `parser.py` legacy pipeline removed above, plus the `TestZipFileProcessing` class in `test_file_processing.py` (same removal). No behavior-pin test for surviving code was touched or weakened; a new regression test (`TestExtractCsvFromZipEncodingOrder`) was added for the encoding-order fix in the chardet-retirement work.
 
 ## v0.7.1 — 2026-06-12
 
