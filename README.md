@@ -38,6 +38,14 @@ Each parser maps known XBRL elements to typed Python fields (dates, decimals, st
 
 Typed fields favor honest `None` over plausible-but-wrong values. Financial figures are selected per accounting standard (J-GAAP, IFRS, US GAAP), and a consolidated filer never silently inherits parent-company figures. Element mappings are pinned by tests against real, unedited filings and cross-checked against issuers' own earnings releases. When a filing doesn't contain a concept, the field is `None`, and the raw data is still in the fact-bag.
 
+## Verification
+
+- **Full-corpus migration proof.** The 0.8.0 parser-internals migration (securities, quarterly, and semi-annual report parsers moving to per-field tier tables) was checked old-parser-vs-new-parser across every stored filing in a 176,460-document production corpus — zero unexplained diffs. The only diffs found were on the exact, pre-registered set of filings affected by the one intentional data-quality fix that shipped in the same migration (the per-standard highlights-table fix — see CHANGELOG).
+- **Golden-fixture panel, cross-checked to the yen.** Eight companies — Toyota, ITOCHU, HOYA, Kansai Paint, Shimamura, Horii Food Service, Shiga Bank, Komatsu — spanning J-GAAP, IFRS, and US-GAAP, mega-cap and small-cap, with and without non-controlling interests, pin every extracted figure against the issuer's own published results.
+- **Cross-field identity check, at corpus scale.** `equity_ratio` computed independently from the same filing's `total_assets` and owners-equity operands agrees with the filer's own stated ratio within a ±0.005 tolerance in 30,338 of 30,340 evaluable J-GAAP filings (99.99%) and 77 of 77 evaluable US-GAAP filings; the two J-GAAP exceptions are known filer-side reporting outliers, not extraction defects. IFRS: this same check surfaced a systematic mixed-standard-operand defect for IFRS-transition filings, fixed in 0.8.0 (see CHANGELOG) — a clean post-fix agreement figure requires a full-corpus re-run and isn't published here until it lands.
+
+Full methodology and the pre-registered pass/fail criteria are in [CHANGELOG.md](CHANGELOG.md).
+
 ## EDINET Document Types
 
 EDINET defines 42 document types spanning corporate disclosure, capital markets activity, and governance reporting. edinet-tools provides typed parsers for all of them. Verified against EDINET's own document-type catalog as of 2026-08-06 — EDINET adds and retires document types over time (Doc 140 quarterly reports, for example, were abolished in April 2024).
@@ -274,6 +282,24 @@ pdf = fetch_document("S100ABC", type=2)        # PDF
 html_zip = fetch_document("S100ABC", type=1)   # HTML documents
 ```
 
+## Known limitations
+
+### What returns `None`, and why
+
+| Field / situation | Returns `None` when | Why |
+|---|---|---|
+| `net_assets_owners` (J-GAAP filers) | Always | Japanese GAAP never files a single owners-only net-assets element. The filed components (`shareholders_equity`, `valuation_translation_adjustments`) ship instead — see "Ownership basis" above. |
+| `net_income_total` (US-GAAP filers) | Nearly always | No total-basis net-income element exists in the US-GAAP summary taxonomy tier. |
+| `operating_income` | The filer's own accounting standard has no operating-profit subtotal (e.g. some IFRS trading houses) | Selected per accounting standard; never falls back to a different standard's, or the parent company's, figure. |
+| Any typed field | The filing doesn't tag the concept at all | The library never invents a number a document didn't state. The raw element set is still there in `raw_fields` / `raw_facts`. |
+| Any numeric field | A structural-bounds check fails (e.g. a "ratio" of 27,056) | The element mapping is treated as wrong for this filing, not the filing itself. Recorded in `extraction_flags`; the raw value stays in `raw_fields`. |
+
+### Tried and rejected
+
+- **`EquityToAssetRatioIFRSSummaryOfBusinessResults` looked like the IFRS equity-ratio element by name. It isn't.** Despite the name, it carries per-share equity in yen, not a ratio. Fixed in 0.7.1 — the per-share value now feeds `ifrs_summary_bps`, and `equity_ratio` reads the actual ratio element.
+- **Financial-sector revenue and bank/insurer profit elements are deliberately not mapped onto `operating_income`.** Banks and insurers don't report a general-corporate operating-profit subtotal; `net_sales` reads their revenue concept (経常収益) via its own tier, but forcing that revenue concept, or a bank's profit line, into `operating_income` would compare unlike things and produce a plausible-looking wrong number. These filers correctly return `operating_income = None`.
+- **There is deliberately no `owners <= total` rule anywhere in the library.** A subsidiary's minority shareholders can themselves post a loss in a period, which pushes the parent's owners-only figure above the total-including-non-controlling-interests figure — a real, correctly-filed result, not a bug. HOYA is the pinned real-filing counterexample in the test fixture panel: for fiscal year 2026-03, `net_income_owners` (¥253,085M) exceeds `net_income_total` (¥251,451M) because non-controlling interests' own share of profit was negative that period.
+
 ## Configuration
 
 Get a free API key from [EDINET](https://disclosure2.edinet-fsa.go.jp/) ([video walkthrough](https://youtu.be/2ao-CZS-BtQ?t=63)):
@@ -296,7 +322,7 @@ Entity lookup and parsing work without an API key — only document fetching req
 ## Testing
 
 ```bash
-pytest tests/ -v  # 900+ tests
+pytest tests/ -v  # 990 passed, 4 xfailed
 ```
 
 ## Links
