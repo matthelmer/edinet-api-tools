@@ -15,9 +15,22 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
+from ..utils import parse_strict_tsv
 from ._facts import Fact
 
 logger = logging.getLogger(__name__)
+
+# EDINET's fixed XBRL-to-CSV column order. A real EDINET CSV carries this
+# exact header row as its first line, but _read_csv_from_zip reads
+# positionally (fieldnames=_EDINET_CSV_COLUMNS below) rather than off the
+# file's own header text, so the header line itself comes back as an
+# ordinary data row (要素ID='要素ID', ...) - callers filter it out by value
+# (see categorize_elements's `elem_id == '要素ID'` skip), matching the
+# pre-existing behavior this reader has always had.
+_EDINET_CSV_COLUMNS = (
+    '要素ID', '項目名', 'コンテキストID', '相対年度',
+    '連結・個別', '期間・時点', 'ユニットID', '単位', '値',
+)
 
 
 def extract_csv_from_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
@@ -67,10 +80,21 @@ def extract_csv_from_zip(zip_bytes: bytes) -> list[dict[str, Any]]:
 
 
 def _read_csv_from_zip(zf: zipfile.ZipFile, name: str) -> list[dict[str, Any]]:
-    """Read a single CSV file from a ZIP archive."""
+    """Read a single CSV file from a ZIP archive.
+
+    Row parsing is fail-loud (see utils.parse_strict_tsv): a malformed row
+    (unterminated quote, or more fields than the fixed 9-column schema)
+    raises csv.Error, which propagates to extract_csv_from_zip's per-file
+    try/except - that file is excluded (logged), the rest of the zip's
+    files are unaffected. This never silently returns wrong-shaped data.
+    """
     raw_bytes = zf.read(name)
 
-    # Try multiple encodings (EDINET uses various encodings)
+    # Try multiple encodings (EDINET uses various encodings). 'utf-16le' is
+    # tried before plain 'utf-16' - real EDINET files are UTF-16-LE with a
+    # BOM, and 'utf-16le' does NOT consume the BOM automatically, hence the
+    # manual strip below. This order + strip is proven across the full
+    # fixture corpus; do not reorder without re-verifying against it.
     encodings = ['utf-16le', 'utf-16', 'utf-8', 'shift-jis', 'cp932']
     content = None
 
@@ -89,44 +113,8 @@ def _read_csv_from_zip(zf: zipfile.ZipFile, name: str) -> list[dict[str, Any]]:
         logger.warning(f"Could not decode {name} with any encoding")
         return []
 
-    # Parse tab-separated CSV
-    rows = []
-    try:
-        lines = content.strip().split('\n')
-        reader = csv.reader(lines, delimiter='\t')
-
-        for row in reader:
-            if len(row) >= 9:
-                # Clean up values
-                cleaned = [_clean_value(col) for col in row]
-                rows.append({
-                    '要素ID': cleaned[0],      # element_id
-                    '項目名': cleaned[1],      # japanese_label
-                    'コンテキストID': cleaned[2],  # context_id
-                    '相対年度': cleaned[3],    # relative_year
-                    '連結・個別': cleaned[4],   # consolidated_or_individual
-                    '期間・時点': cleaned[5],   # period_or_instant
-                    'ユニットID': cleaned[6],   # unit_id
-                    '単位': cleaned[7],        # unit
-                    '値': cleaned[8],          # value
-                })
-    except Exception as e:
-        logger.warning(f"Error parsing CSV {name}: {e}")
-        return []
-
-    return rows
-
-
-def _clean_value(value: str) -> str:
-    """Clean a CSV cell value."""
-    if not value:
-        return ''
-    cleaned = value.strip()
-    # Remove null bytes and control characters
-    cleaned = cleaned.replace('\x00', '').replace('\ufeff', '')
-    # Remove quotes
-    cleaned = cleaned.strip('"').strip("'").strip()
-    return cleaned
+    records = parse_strict_tsv(content.strip(), fieldnames=_EDINET_CSV_COLUMNS)
+    return records or []
 
 
 # --- Parsing utilities ---
@@ -664,16 +652,14 @@ def extract_csv_to_disk(zip_bytes: bytes, output_dir) -> list:
 
     csv_files = extract_csv_from_zip(zip_bytes)
     written_paths = []
-    columns = ['要素ID', '項目名', 'コンテキストID', '相対年度',
-               '連結・個別', '期間・時点', 'ユニットID', '単位', '値']
 
     for csv_file in csv_files:
         output_path = output_dir / csv_file['filename']
         with open(output_path, 'w', encoding='utf-8', newline='') as f:
             writer = csv.writer(f, delimiter='\t')
-            writer.writerow(columns)
+            writer.writerow(_EDINET_CSV_COLUMNS)
             for row in csv_file.get('data', []):
-                writer.writerow([row.get(col, '') for col in columns])
+                writer.writerow([row.get(col, '') for col in _EDINET_CSV_COLUMNS])
         written_paths.append(output_path)
 
     return written_paths

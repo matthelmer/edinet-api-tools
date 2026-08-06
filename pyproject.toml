@@ -26,9 +26,7 @@ classifiers = [
 ]
 keywords = ["finance", "japan", "edinet", "financial-data", "xbrl", "corporate-filings"]
 
-dependencies = [
-    "chardet>=5.0.0",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [

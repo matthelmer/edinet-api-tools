@@ -2,14 +2,13 @@
 File Processing Infrastructure Tests - TIER 1 CRITICAL PATH
 
 Tests the file processing pipeline that enables all document extraction:
-ZIP handling, encoding detection, CSV parsing, directory processing.
+encoding fallback, CSV parsing, directory processing.
 """
 
 import os
 import tempfile
 
 from edinet_tools.utils import (
-    detect_encoding,
     read_csv_file,
     clean_text,
 )
@@ -36,16 +35,13 @@ jpcrp_cor:CompanyNameTextBlock\t会社名\tFilingDateInstant\tトヨタ自動車
     def test_utf16_encoding_detection_and_reading(self):
         """UTF-16 is commonly used in EDINET CSV files"""
         utf16_file = os.path.join(self.temp_dir, 'utf16_test.csv')
-        
+
         # Create UTF-16 file (common EDINET format)
         with open(utf16_file, 'w', encoding='utf-16') as f:
             f.write(self.japanese_text)
-        
-        # Should detect UTF-16
-        encoding = detect_encoding(utf16_file)
-        assert 'utf-16' in encoding.lower()
-        
-        # Should read successfully
+
+        # Should read successfully (encoding tried via the fixed candidate
+        # list, 'utf-16' first -- no chardet detection step since 0.8.0)
         records = read_csv_file(utf16_file)
         assert records is not None
         assert len(records) == 3
@@ -61,10 +57,7 @@ jpcrp_cor:CompanyNameTextBlock\t会社名\tFilingDateInstant\tトヨタ自動車
         
         with open(utf8_file, 'w', encoding='utf-8') as f:
             f.write(self.japanese_text)
-        
-        encoding = detect_encoding(utf8_file)
-        assert encoding in ['utf-8', 'ascii']  # ASCII detection is acceptable for simple content
-        
+
         records = read_csv_file(utf8_file)
         assert records is not None
         assert records[2]['値'] == 'トヨタ自動車株式会社'
