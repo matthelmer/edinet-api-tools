@@ -10,7 +10,7 @@ import logging
 EDINET_API_KEY = os.environ.get('EDINET_API_KEY')
 
 if not EDINET_API_KEY:
-    logging.warning("EDINET_API_KEY not set in .env file.")
+    logging.warning("EDINET_API_KEY not set in the environment.")
 
 # Complete EDINET document types mapping
 # Based on official EDINET documentation and API specifications
