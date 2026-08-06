@@ -11,7 +11,6 @@ Doc 280: Amendment to tender offer report
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Optional
 
 from .base import ParsedReport
 from .extraction import (

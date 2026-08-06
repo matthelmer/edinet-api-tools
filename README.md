@@ -10,7 +10,7 @@ EDINET covers 42 document types, and the same financial concept is tagged under 
 
 If you need one company's latest filing once, the [EDINET web UI](https://disclosure2.edinet-fsa.go.jp/) is faster than writing code for it — this library is for programmatic or repeated access. Looking for same-day earnings announcements instead of regulatory filings? That's [TDNET](https://www.release.tdnet.info/), not EDINET.
 
-> **Upgrading from an earlier version?** 0.8.0 removes three financial-statement fields (replaced with owners/total pairs), `EdinetClient`, and a handful of long-deprecated shims. See [MIGRATING.md](MIGRATING.md).
+> **Upgrading from an earlier version?** 0.8.0 removes three financial-statement fields (replaced with owners/total pairs), `EdinetClient`, and a handful of long-deprecated shims. See [MIGRATING.md](https://github.com/matthelmer/edinet-tools/blob/main/MIGRATING.md).
 
 ```python
 import edinet_tools
@@ -184,7 +184,7 @@ own shareholders' piece? edinet-tools never picks one silently: every
 field where this is ambiguous ships as an explicit `*_owners` / `*_total`
 pair, both exactly as filed. Full explanation, including the
 `owners <= total` non-assumption and why it matters:
-[docs/ownership-basis.md](docs/ownership-basis.md).
+[docs/ownership-basis.md](https://github.com/matthelmer/edinet-tools/blob/main/docs/ownership-basis.md).
 
 #### Fields
 
@@ -205,7 +205,7 @@ yourself from the two filed components
 ships the facts as filed and leaves that arithmetic to you.
 
 Upgrading from before 0.8.0? `net_assets`, `net_income`, and
-`prior_net_income` were removed — see [MIGRATING.md](MIGRATING.md) for the
+`prior_net_income` were removed — see [MIGRATING.md](https://github.com/matthelmer/edinet-tools/blob/main/MIGRATING.md) for the
 full field-by-field replacement table.
 
 ### Validation

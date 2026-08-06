@@ -1,5 +1,5 @@
 """
-Parser for Semi-Annual Reports (Doc Type 160).
+Parser for Semi-Annual Reports (Doc Type 160/170).
 
 Extracts financial data from 半期報告書 filings.
 Supports both corporate and fund reports with IFRS fallback.
@@ -253,19 +253,19 @@ def parse_semi_annual_report(document=None, *, csv_files=None, doc_id=None, doc_
     # get_context_patterns).
     instant_period, duration_period = detect_period_tokens(csv_files)
 
-    def fin(name, tiers, period):
+    def fin(tiers, period):
         hit = resolve_tiers(csv_files, tiers, standard=accounting_standard,
                             period=period, is_consolidated=is_consolidated)
         return hit.value if hit else None
 
-    total_assets = fin('total_assets', _INSTANT_FIELD_TIERS['total_assets'], instant_period)
-    current_assets = fin('current_assets', _INSTANT_FIELD_TIERS['current_assets'], instant_period)
-    total_liabilities = fin('total_liabilities', _INSTANT_FIELD_TIERS['total_liabilities'], instant_period)
-    current_liabilities = fin('current_liabilities', _INSTANT_FIELD_TIERS['current_liabilities'], instant_period)
-    net_assets = fin('net_assets', _INSTANT_FIELD_TIERS['net_assets'], instant_period)
-    operating_income = fin('operating_income', _DURATION_FIELD_TIERS['operating_income'], duration_period)
-    ordinary_income = fin('ordinary_income', _DURATION_FIELD_TIERS['ordinary_income'], duration_period)
-    profit_loss = fin('profit_loss', _DURATION_FIELD_TIERS['profit_loss'], duration_period)
+    total_assets = fin(_INSTANT_FIELD_TIERS['total_assets'], instant_period)
+    current_assets = fin(_INSTANT_FIELD_TIERS['current_assets'], instant_period)
+    total_liabilities = fin(_INSTANT_FIELD_TIERS['total_liabilities'], instant_period)
+    current_liabilities = fin(_INSTANT_FIELD_TIERS['current_liabilities'], instant_period)
+    net_assets = fin(_INSTANT_FIELD_TIERS['net_assets'], instant_period)
+    operating_income = fin(_DURATION_FIELD_TIERS['operating_income'], duration_period)
+    ordinary_income = fin(_DURATION_FIELD_TIERS['ordinary_income'], duration_period)
+    profit_loss = fin(_DURATION_FIELD_TIERS['profit_loss'], duration_period)
 
     # Categorize all elements
     raw_fields, text_blocks, unmapped_fields, raw_facts = categorize_elements(csv_files, ELEMENT_MAP)
