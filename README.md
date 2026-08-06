@@ -11,7 +11,7 @@ Python library for Japan's [EDINET](https://disclosure2.edinet-fsa.go.jp/) discl
 import edinet_tools
 
 toyota = edinet_tools.entity("7203")
-docs = toyota.documents(days=30)
+docs = toyota.documents(days=30)   # requires EDINET_API_KEY — see Configuration
 report = docs[0].parse()  # → SecuritiesReport, LargeHoldingReport, etc.
 ```
 
@@ -141,7 +141,12 @@ report.net_assets_owners  # equity attributable to owners of parent (always None
 # Large Shareholding Report
 report.filer_name
 report.target_company
-report.ownership_pct
+report.ownership_pct        # on a joint filing, this is the CO-FILERS' GROUP total —
+                             # not filer_name's own stake alone
+report.is_joint_filing      # True when 2+ filers report together
+report.joint_holders        # list[JointHolder] — one entry per co-reporter (incl. the
+                             # primary filer), holder_number 1..N
+report.joint_holder_count   # len(joint_holders)
 
 # Tender Offer
 report.acquirer_name
