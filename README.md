@@ -4,7 +4,9 @@
 [![Tests](https://github.com/matthelmer/edinet-tools/actions/workflows/test.yml/badge.svg)](https://github.com/matthelmer/edinet-tools/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Python library for Japan's [EDINET](https://disclosure2.edinet-fsa.go.jp/) disclosure system — the official source for securities reports, shareholding notices, tender offers, and other regulatory filings from listed Japanese companies. EDINET covers 42 document types, and the same financial concept is tagged under a different XBRL element depending on accounting standard (J-GAAP, IFRS, US-GAAP) and filer — this library maps that into one typed Python field per concept.
+Python library for Japan's [EDINET](https://disclosure2.edinet-fsa.go.jp/) disclosure system — the official source for securities reports, shareholding notices, tender offers, and other regulatory filings from listed Japanese companies.
+
+EDINET covers 42 document types, and the same financial concept is tagged under a different XBRL element depending on the filer's accounting standard (J-GAAP, IFRS, US-GAAP). This library maps that into one typed Python field per concept.
 
 If you need one company's latest filing once, the [EDINET web UI](https://disclosure2.edinet-fsa.go.jp/) is faster than writing code for it — this library is for programmatic or repeated access. Looking for same-day earnings announcements instead of regulatory filings? That's [TDNET](https://www.release.tdnet.info/), not EDINET.
 
@@ -24,7 +26,7 @@ report = docs[0].parse()  # → SecuritiesReport, LargeHoldingReport, etc.
 pip install edinet-tools
 ```
 
-Requires Python 3.10+. Zero runtime dependencies — standard library only. Versions before 0.8.0 depended on pandas, numpy (transitively), python-dateutil, chardet, and python-dotenv; installing that dependency set today adds roughly 109MB to a virtualenv's `site-packages` (measured: a fresh install of those five packages' current versions vs. a fresh, otherwise-empty virtualenv), almost entirely pandas and numpy.
+Requires Python 3.10+. Zero runtime dependencies — standard library only. (Through 0.7.x it pulled in pandas, numpy, python-dateutil, chardet, and python-dotenv: roughly 109MB of `site-packages`, almost all of it pandas and numpy.)
 
 ## Design
 
@@ -36,13 +38,14 @@ edinet-tools has three layers:
 
 Each parser maps known XBRL elements to typed Python fields (dates, decimals, strings). As EDINET evolves or new elements become useful, adding a field is one line in the element map and one line on the dataclass.
 
-Typed fields favor honest `None` over plausible-but-wrong values. Financial figures are selected per accounting standard (J-GAAP, IFRS, US GAAP), and a consolidated filer never silently inherits parent-company figures. Element mappings are pinned by tests against real, unedited filings and cross-checked against issuers' own earnings releases. When a filing doesn't contain a concept, the field is `None`, and the raw data is still in the fact-bag.
+Typed fields favor honest `None` over plausible-but-wrong values. Financial figures are selected per accounting standard (J-GAAP, IFRS, US GAAP), and a consolidated filer never silently inherits parent-company figures. When a filing doesn't contain a concept, the field is `None`, and the raw data is still in the fact-bag.
 
 ## Verification
 
-- **Full-corpus migration proof.** The 0.8.0 parser-internals migration (securities, quarterly, and semi-annual report parsers moving to per-field tier tables) was checked old-parser-vs-new-parser across every stored filing in a 176,460-document production corpus — zero unexplained diffs. The only diffs found were on the exact, pre-registered set of filings affected by the one intentional data-quality fix that shipped in the same migration (the per-standard highlights-table fix — see CHANGELOG).
+- **Full-corpus migration proof.** 0.8.0 rewrote the internals of the securities, quarterly, and semi-annual parsers. Old and new were run against all 176,460 filings in an archived corpus and compared field by field: the only differences were on the pre-registered set of filings touched by the one intentional data-quality fix shipped alongside it (below).
 - **Golden-fixture panel, cross-checked to the yen.** Eight companies — Toyota, ITOCHU, HOYA, Kansai Paint, Shimamura, Horii Food Service, Shiga Bank, Komatsu — spanning J-GAAP, IFRS, and US-GAAP, mega-cap and small-cap, with and without non-controlling interests, pin every extracted figure against the issuer's own published results.
-- **Cross-field identity check, at corpus scale.** `equity_ratio` computed independently from the same filing's `total_assets` and owners-equity operands agrees with the filer's own stated ratio within a ±0.02 absolute tolerance in 30,338 of 30,340 evaluable J-GAAP filings (99.99%) and 77 of 77 evaluable US-GAAP filings; the two J-GAAP exceptions are known filer-side reporting outliers, not extraction defects. IFRS: this same check surfaced a systematic mixed-standard-operand defect for IFRS-transition filings, fixed in 0.8.0 (see CHANGELOG) — a clean post-fix agreement figure requires a full-corpus re-run and isn't published here until it lands.
+- **Cross-field identity check, at corpus scale.** `equity_ratio` recomputed from the same filing's own `total_assets` and owners-equity figures agrees with the ratio the filer stated, within ±0.02, in 30,338 of 30,340 evaluable J-GAAP filings and 77 of 77 evaluable US-GAAP filings. The two J-GAAP exceptions are filer-side reporting outliers, not extraction defects.
+- **What that check caught.** Run against IFRS filings, it exposed a systematic defect of this library's own: filings that present both an IFRS and a legacy J-GAAP highlights table were served the J-GAAP figures. That is fixed in 0.8.0, and the post-fix re-run leaves two outliers, both filer-side (see CHANGELOG).
 
 Full methodology and the pre-registered pass/fail criteria are in [CHANGELOG.md](CHANGELOG.md).
 
@@ -152,12 +155,13 @@ report.net_assets_owners  # equity attributable to owners of parent (always None
 # Large Shareholding Report
 report.filer_name
 report.target_company
-report.ownership_pct        # on a joint filing, this is the CO-FILERS' GROUP total —
-                             # not filer_name's own stake alone
+# On a joint filing, ownership_pct is the CO-FILERS' GROUP total — not the
+# named filer's own stake. Roughly half of all 5%+ filings are joint, so
+# summing ownership_pct across filers double-counts badly.
+report.ownership_pct
 report.is_joint_filing      # True when 2+ filers report together
-report.joint_holders        # list[JointHolder] — one entry per co-reporter (incl. the
-                             # primary filer), holder_number 1..N
-report.joint_holder_count   # len(joint_holders)
+report.joint_holders        # list[JointHolder], one per co-reporter, holder_number 1..N
+report.joint_holder_count
 
 # Tender Offer
 report.acquirer_name
@@ -306,8 +310,12 @@ Entity lookup and parsing work without an API key — only document fetching req
 ## Testing
 
 ```bash
-pytest tests/ -v  # 990 passed, 4 xfailed
+pytest tests/ -v
 ```
+
+The suite runs offline against committed real-filing fixtures — no API key
+and no network needed; the handful of live API-contract tests skip without
+a key.
 
 ## Links
 
