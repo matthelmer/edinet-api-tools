@@ -20,7 +20,8 @@ build/
 dist/
 *.egg-info/
 
-# Ignore all .md files except README.md and CHANGELOG.md
+# Ignore all .md files except README.md, CHANGELOG.md, and MIGRATING.md
 *.md
 !README.md
 !CHANGELOG.md
+!MIGRATING.md

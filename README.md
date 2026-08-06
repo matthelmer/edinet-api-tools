@@ -1,11 +1,14 @@
 # edinet-tools
 
 [![PyPI](https://img.shields.io/pypi/v/edinet-tools)](https://pypi.org/project/edinet-tools/)
-[![Downloads](https://static.pepy.tech/badge/edinet-tools)](https://pepy.tech/project/edinet-tools)
 [![Tests](https://github.com/matthelmer/edinet-tools/actions/workflows/test.yml/badge.svg)](https://github.com/matthelmer/edinet-tools/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Python library for Japan's [EDINET](https://disclosure2.edinet-fsa.go.jp/) disclosure system — the official source for securities reports, shareholding notices, tender offers, and other regulatory filings from listed Japanese companies.
+Python library for Japan's [EDINET](https://disclosure2.edinet-fsa.go.jp/) disclosure system — the official source for securities reports, shareholding notices, tender offers, and other regulatory filings from listed Japanese companies. EDINET covers 42 document types, and the same financial concept is tagged under a different XBRL element depending on accounting standard (J-GAAP, IFRS, US-GAAP) and filer — this library maps that into one typed Python field per concept.
+
+If you need one company's latest filing once, the [EDINET web UI](https://disclosure2.edinet-fsa.go.jp/) is faster than writing code for it — this library is for programmatic or repeated access. Looking for same-day earnings announcements instead of regulatory filings? That's [TDNET](https://www.release.tdnet.info/), not EDINET.
+
+> **Upgrading from an earlier version?** 0.8.0 removes three financial-statement fields (replaced with owners/total pairs), `EdinetClient`, and a handful of long-deprecated shims. See [MIGRATING.md](MIGRATING.md).
 
 ```python
 import edinet_tools
@@ -37,7 +40,7 @@ Typed fields favor honest `None` over plausible-but-wrong values. Financial figu
 
 ## EDINET Document Types
 
-EDINET defines 42 document types spanning corporate disclosure, capital markets activity, and governance reporting. edinet-tools provides typed parsers for all of them.
+EDINET defines 42 document types spanning corporate disclosure, capital markets activity, and governance reporting. edinet-tools provides typed parsers for all of them. Verified against EDINET's own document-type catalog as of 2026-08-06 — EDINET adds and retires document types over time (Doc 140 quarterly reports, for example, were abolished in April 2024).
 
 | Code | Family | Description |
 |------|--------|-------------|
@@ -205,19 +208,9 @@ yourself from the two filed components
 (`shareholders_equity + valuation_translation_adjustments`) — edinet-tools
 ships the facts as filed and leaves that arithmetic to you.
 
-#### Migrating from < 0.8.0
-
-`net_assets`, `net_income`, and `prior_net_income` were removed in 0.8.0.
-Reading them raises `AttributeError` naming the replacement field(s);
-constructing a `SecuritiesReport` with them as keyword arguments raises
-`TypeError`. Fix your code from this table:
-
-| Old field | Standard | What the old value actually was | Replacement |
-|---|---|---|---|
-| `net_assets` | J-GAAP | Always total-basis (incl. NCI) | `net_assets_total` |
-| `net_assets` | IFRS / US-GAAP | Owners-basis when the filing tagged it; silently fell back to total-basis otherwise | `net_assets_owners`, falling back to `net_assets_total` for the old fallback behavior |
-| `net_income` | J-GAAP / IFRS / US-GAAP | Owners-basis for almost every filer; silently fell back to total-basis for the minority of filers whose owners-basis element was absent | `net_income_owners`, falling back to `net_income_total` for the old fallback behavior (`net_income_total` is `None` for nearly all US-GAAP filers) |
-| `prior_net_income` | all | Same mixed routing as `net_income`, prior-year context | `prior_net_income_owners` / `prior_net_income_total`, same fallback pattern |
+Upgrading from before 0.8.0? `net_assets`, `net_income`, and
+`prior_net_income` were removed — see [MIGRATING.md](MIGRATING.md) for the
+full field-by-field replacement table.
 
 ### Validation
 
