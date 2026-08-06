@@ -24,7 +24,7 @@ report = docs[0].parse()  # → SecuritiesReport, LargeHoldingReport, etc.
 pip install edinet-tools
 ```
 
-Requires Python 3.10+. Zero runtime dependencies — standard library only.
+Requires Python 3.10+. Zero runtime dependencies — standard library only. Versions before 0.8.0 depended on pandas, numpy (transitively), python-dateutil, chardet, and python-dotenv; installing that dependency set today adds roughly 109MB to a virtualenv's `site-packages` (measured: a fresh install of those five packages' current versions vs. a fresh, otherwise-empty virtualenv), almost entirely pandas and numpy.
 
 ## Design
 
