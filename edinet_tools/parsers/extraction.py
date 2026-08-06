@@ -90,12 +90,22 @@ def _read_csv_from_zip(zf: zipfile.ZipFile, name: str) -> list[dict[str, Any]]:
     """
     raw_bytes = zf.read(name)
 
-    # Try multiple encodings (EDINET uses various encodings). 'utf-16le' is
-    # tried before plain 'utf-16' - real EDINET files are UTF-16-LE with a
-    # BOM, and 'utf-16le' does NOT consume the BOM automatically, hence the
-    # manual strip below. This order + strip is proven across the full
-    # fixture corpus; do not reorder without re-verifying against it.
-    encodings = ['utf-16le', 'utf-16', 'utf-8', 'shift-jis', 'cp932']
+    # Try multiple encodings (EDINET uses various encodings). 'utf-8' is
+    # tried first - it validates strictly (rejects almost any non-utf-8
+    # byte sequence outright), whereas the utf-16 family barely validates
+    # anything (most even-length byte strings "succeed", silently decoding
+    # to mojibake instead of raising). Found via the 0.8.0 zero-dep smoke
+    # test: a real, non-BOM UTF-8-encoded fixture silently mojibaked to a
+    # single garbage row under the old utf-16le-first order, pre-dating
+    # this task's changes entirely (chardet was never involved here) -
+    # latent because every existing zip-based test happened to only ever
+    # feed this function utf-16le-encoded content. Real EDINET files are
+    # UTF-16-LE with a BOM; the BOM bytes (0xFF 0xFE) are never valid
+    # utf-8, so utf-8 fails fast and correctly falls through to
+    # 'utf-16le' for those - unaffected by the reorder. 'utf-16le' stays
+    # ahead of plain 'utf-16' - it does NOT consume the BOM automatically,
+    # hence the manual strip below.
+    encodings = ['utf-8', 'utf-16le', 'utf-16', 'shift-jis', 'cp932']
     content = None
 
     for encoding in encodings:

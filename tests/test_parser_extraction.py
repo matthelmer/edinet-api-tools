@@ -1175,3 +1175,51 @@ class TestIFRSSummaryMetricsExtraction:
         # Without the fix: total_assets would be None despite IFRS having
         # a value. With the fix: total_assets is the IFRS value.
         assert r.total_assets == 90000000000
+
+
+class TestExtractCsvFromZipEncodingOrder:
+    """Regression pin (0.8.0 stage-5, found via the zero-dependency smoke
+    test): extract_csv_from_zip's encoding-trial order must try 'utf-8'
+    before the 'utf-16' family. utf-16/utf-16le barely validate anything -
+    most even-length byte strings decode "successfully" into mojibake
+    rather than raising - so a non-BOM UTF-8 file tried under utf-16le
+    first can silently collapse into a single garbage row instead of the
+    correct multi-row parse. Every other extraction test in this file
+    builds its fixture via .encode('utf-16le'), matching the first-tried
+    encoding, so this class is the only place a non-BOM UTF-8 input
+    actually exercises the encoding order.
+    """
+
+    def test_non_bom_utf8_csv_parses_correctly_not_mojibake(self):
+        from edinet_tools.parsers.extraction import extract_csv_from_zip
+
+        rows = [
+            ('要素ID', '項目名', 'コンテキストID', '相対年度',
+             '連結・個別', '期間・時点', 'ユニットID', '単位', '値'),
+            ('jpdei_cor:EDINETCodeDEI', 'EDINETコード', 'FilingDateInstant',
+             '', '', '', '', '', 'E99999'),
+            ('jpcrp_cor:NetSalesSummaryOfBusinessResults', '売上高',
+             'CurrentYearDuration', '', '', '', '', '円', '50000000000'),
+        ]
+        csv_content = '\n'.join('\t'.join(r) for r in rows)
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zf:
+            # Plain UTF-8, no BOM - the class that previously mojibaked.
+            zf.writestr('XBRL_TO_CSV/test.csv', csv_content.encode('utf-8'))
+
+        csv_files = extract_csv_from_zip(zip_buffer.getvalue())
+
+        assert len(csv_files) == 1
+        data = csv_files[0]['data']
+        # 3 rows: the header (kept as an ordinary data row by design) + 2
+        # real rows - NOT 1 garbage row from a false-positive utf-16 decode.
+        assert len(data) == 3
+        element_ids = [row['要素ID'] for row in data]
+        assert 'jpdei_cor:EDINETCodeDEI' in element_ids
+        assert 'jpcrp_cor:NetSalesSummaryOfBusinessResults' in element_ids
+        net_sales_row = next(
+            row for row in data
+            if row['要素ID'] == 'jpcrp_cor:NetSalesSummaryOfBusinessResults'
+        )
+        assert net_sales_row['値'] == '50000000000'
