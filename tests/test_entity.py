@@ -177,14 +177,14 @@ class TestEntityFundIssuer:
     """Test entity fund issuer functionality."""
 
     def test_entity_type_is_fund_for_issuer(self):
-        """Fund issuers classify as EntityType.FUND; regular companies do not."""
+        """Fund issuers classify as EntityType.FUND_ISSUER; regular companies do not."""
         toyota = entity("7203")
         assert toyota is not None
-        assert toyota.entity_type != EntityType.FUND
+        assert toyota.entity_type != EntityType.FUND_ISSUER
         # E12422 is しんきんアセットマネジメント投信 - a known fund issuer
         issuer = entity_by_edinet_code("E12422")
         assert issuer is not None
-        assert issuer.entity_type == EntityType.FUND
+        assert issuer.entity_type == EntityType.FUND_ISSUER
 
     def test_entity_type_unknown_for_nonexistent_code(self):
         """A code absent from the registry classifies as UNKNOWN, not a coerced False."""

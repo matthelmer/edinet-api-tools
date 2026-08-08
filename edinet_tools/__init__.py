@@ -14,7 +14,7 @@ from .timezone import today_jst
 from .config import SUPPORTED_DOC_TYPES as DOCUMENT_TYPES
 
 # Entity classification
-from .entity_classifier import EntityClassifier, EntityType
+from .entity_classifier import EntityClassifier, EntityType, StaleDataWarning
 
 # Entity-first API
 from .entity import (
@@ -100,5 +100,6 @@ __all__ = [
     # Legacy (deprecated)
     "EntityClassifier",
     "EntityType",
+    "StaleDataWarning",
     "GenericReport",  # Backwards compatibility alias
 ]

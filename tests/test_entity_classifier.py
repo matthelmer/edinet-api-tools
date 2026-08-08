@@ -125,7 +125,7 @@ class TestListedCompanyClassification:
     def test_toyota_is_listed_company(self, classifier):
         """Toyota (E02144) should be a listed company."""
         assert classifier.get_entity_type('E02144') == EntityType.LISTED_COMPANY
-        assert not classifier.is_fund('E02144')
+        assert not classifier.is_fund_issuer('E02144')
         assert classifier.is_known('E02144')
 
     def test_toyota_securities_code(self, classifier):
@@ -156,8 +156,8 @@ class TestFundClassification:
         for code in classifier._fund_edinet_codes:
             entity = classifier._edinet_entities.get(code)
             if not entity or not entity['is_listed']:
-                assert classifier.is_fund(code)
-                assert classifier.get_entity_type(code) == EntityType.FUND
+                assert classifier.is_fund_issuer(code)
+                assert classifier.get_entity_type(code) == EntityType.FUND_ISSUER
                 return
         pytest.fail("No pure (non-listed) fund issuer found in registry")
 
@@ -172,17 +172,18 @@ class TestFundClassification:
         """
         # Credit Saison (E03041, ticker 8253) — credit card / consumer finance,
         # listed on TSE Prime, also issued fund products historically.
-        assert classifier.is_fund('E03041'), \
+        assert classifier.is_fund_issuer('E03041'), \
             "Credit Saison should still be in the fund registry"
         assert classifier.get_entity_type('E03041') == EntityType.LISTED_COMPANY, \
             "Credit Saison should classify as LISTED_COMPANY despite fund-registry membership"
 
         # JAFCO Group (E04806, ticker 8595) — venture capital firm, listed
-        # on TSE Prime, issues PE/VC funds.
-        assert classifier.is_fund('E04806'), \
-            "JAFCO should still be in the fund registry"
+        # on TSE Prime. Left the fund registry's issuer column between the
+        # 2026-05-12 and 2026-08-08 code lists (issuer membership drifts as
+        # funds mature) — proof the registry is a snapshot, so only its
+        # listed classification is pinned here.
         assert classifier.get_entity_type('E04806') == EntityType.LISTED_COMPANY, \
-            "JAFCO should classify as LISTED_COMPANY despite fund-registry membership"
+            "JAFCO should classify as LISTED_COMPANY"
 
 
 class TestUnknownEntities:
@@ -192,7 +193,7 @@ class TestUnknownEntities:
         """Unknown EDINET codes should return UNKNOWN."""
         assert classifier.get_entity_type('E99999') == EntityType.UNKNOWN
         assert not classifier.is_known('E99999')
-        assert not classifier.is_fund('E99999')
+        assert not classifier.is_fund_issuer('E99999')
 
     def test_empty_code_returns_unknown(self, classifier):
         """Empty or None EDINET codes should return UNKNOWN."""
@@ -294,3 +295,61 @@ class TestReverseIndexes:
         stats = classifier.stats
         assert stats['listed_companies'] > 1000, \
             f"Expected >1000 listed companies, got {stats['listed_companies']}"
+
+
+class TestStaleDataWarning:
+    """The bundled code lists are a snapshot; the classifier must say so
+    once they are old enough that listing status has likely drifted."""
+
+    def _write_minimal_csvs(self, tmp_path, stamp):
+        edinet = tmp_path / f'EdinetcodeDlInfo_{stamp}.csv'
+        edinet.write_text(
+            'メタ,データ\n'
+            'ＥＤＩＮＥＴコード,提出者種別,上場区分,提出者名,提出者名（英字）,'
+            '提出者名（ヨミ）,提出者業種,証券コード,提出者法人番号\n'
+            'E00001,内国法人・組合,上場,テスト株式会社,Test Corp,テスト,'
+            'サービス業,99990,1234567890123\n',
+            encoding='cp932')
+        fund = tmp_path / f'FundcodeDlInfo_{stamp}.csv'
+        fund.write_text(
+            'メタ,データ\n'
+            'ファンドコード,ＥＤＩＮＥＴコード,ファンド名\n'
+            'G00001,E00002,テストファンド\n',
+            encoding='cp932')
+        return str(edinet), str(fund)
+
+    def test_old_files_warn(self, tmp_path):
+        from edinet_tools.entity_classifier import StaleDataWarning
+        e, f = self._write_minimal_csvs(tmp_path, '20200101')
+        with pytest.warns(StaleDataWarning):
+            EntityClassifier(edinet_codes_path=e, fund_codes_path=f)
+
+    def test_fresh_files_do_not_warn(self, tmp_path):
+        from datetime import date
+        e, f = self._write_minimal_csvs(
+            tmp_path, date.today().strftime('%Y%m%d'))
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter('error')
+            EntityClassifier(edinet_codes_path=e, fund_codes_path=f)
+
+    def test_undated_files_do_not_warn(self, tmp_path):
+        """No date in the filename -> skip the check rather than guess."""
+        import shutil
+        src_e, src_f = self._write_minimal_csvs(tmp_path, '20200101')
+        e = tmp_path / 'EdinetcodeDlInfo.csv'
+        f = tmp_path / 'FundcodeDlInfo.csv'
+        shutil.move(src_e, e)
+        shutil.move(src_f, f)
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter('error')
+            EntityClassifier(edinet_codes_path=str(e), fund_codes_path=str(f))
+
+    def test_bundled_data_currently_fresh(self, classifier):
+        """The data shipped with this release must not warn at import time.
+        If this fails, refresh edinet_tools/data/ before releasing."""
+        from datetime import datetime as _dt
+        for stamp in classifier.data_version.values():
+            age = (_dt.now().date() - _dt.strptime(stamp, '%Y-%m-%d').date()).days
+            assert age <= 365, f"bundled code list is {age} days old — refresh it"

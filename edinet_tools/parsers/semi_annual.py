@@ -91,11 +91,12 @@ class SemiAnnualReport(ParsedReport):
     def filer(self):
         """Resolve filer to Entity via the FSA registry.
 
-        The Entity exposes `entity_type` (an `EntityType` enum: FUND,
-        LISTED_COMPANY, UNLISTED_COMPANY, INDIVIDUAL, UNKNOWN), which is
-        the authoritative answer to "is this filer a fund or corporation?"
-        Use `report.filer.entity_type == EntityType.FUND` instead of any
-        XBRL-derived inference — the FSA registry is the source of truth.
+        The Entity exposes `entity_type` (an `EntityType` enum:
+        FUND_ISSUER, LISTED_COMPANY, UNLISTED_COMPANY, INDIVIDUAL,
+        UNKNOWN), classified from the FSA registry — prefer it over any
+        XBRL-derived inference. Note FUND_ISSUER means "appears in the
+        fund registry's issuer column" (trust banks qualify), not "is a
+        fund"; corroborate before treating an issuer as a fund itself.
 
         Returns None when filer_edinet_code is not set, or when the entity
         is not in the registry (honest unknown).

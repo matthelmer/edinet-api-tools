@@ -65,7 +65,7 @@ class Entity:
         """Fact-shaped entity classification from FSA registry data.
 
         Returns:
-            EntityType enum value: LISTED_COMPANY, UNLISTED_COMPANY, FUND,
+            EntityType enum value: LISTED_COMPANY, UNLISTED_COMPANY, FUND_ISSUER,
             INDIVIDUAL, or UNKNOWN.
 
         Replaces the deprecated is_listed and is_fund_issuer booleans, which
@@ -75,7 +75,7 @@ class Entity:
         Examples:
             >>> from edinet_tools import EntityType
             >>> entity.entity_type == EntityType.LISTED_COMPANY  # was: entity.is_listed
-            >>> entity.entity_type == EntityType.FUND            # was: entity.is_fund_issuer
+            >>> entity.entity_type == EntityType.FUND_ISSUER     # was: entity.is_fund_issuer
         """
         classifier = _get_classifier()
         return classifier.get_entity_type(self.edinet_code)

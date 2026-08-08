@@ -55,11 +55,27 @@ transition; removed outright in 0.8.0.
 | Old | New |
 |---|---|
 | `Entity.is_listed` | `entity.entity_type == EntityType.LISTED_COMPANY` |
-| `Entity.is_fund_issuer` | `entity.entity_type == EntityType.FUND` |
+| `Entity.is_fund_issuer` | `entity.entity_type == EntityType.FUND_ISSUER` |
 | `EntityClassifier.is_listed(code)` | `classifier.get_entity_type(code) == EntityType.LISTED_COMPANY` |
 | `TreasuryStockReport.has_board_authorization` | `bool(parsed.by_board_meeting and parsed.by_board_meeting.strip())` |
 | `TreasuryStockReport.has_shareholder_authorization` | `bool(parsed.by_shareholders_meeting and parsed.by_shareholders_meeting.strip())` |
 | `utils.process_zip_directory()` | `extract_csv_from_zip()` (in-memory) or `extract_csv_to_disk()` (disk output) |
+
+## `EntityType.FUND` → `EntityType.FUND_ISSUER`
+
+The classification comes from the fund registry's *issuer* column: it
+means "has issued fund products" (trust banks qualify), not "is a fund".
+The member, its value string, and the classifier helper are renamed to
+say so.
+
+| Old | New |
+|---|---|
+| `EntityType.FUND` | `EntityType.FUND_ISSUER` |
+| `"fund"` (the `.value` string) | `"fund_issuer"` |
+| `EntityClassifier.is_fund(code)` | `classifier.is_fund_issuer(code)` |
+
+If you persist `EntityType.value` strings, map stored `"fund"` values on
+read or migrate them — the enum no longer accepts `EntityType("fund")`.
 
 ## Legacy `processors.py` / `parser.py` pipeline removed
 

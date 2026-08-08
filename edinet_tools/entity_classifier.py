@@ -14,11 +14,22 @@ and a handful of translatable values differ. The loader resolves columns
 by header name (trying both language variants) so it works against either
 variant and fails loudly if a column is ever renamed.
 """
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 import csv
-import re
 import glob
+import re
+import warnings
+
+
+# Bundled code lists age with every delisting/IPO; warn past this age.
+STALE_DATA_WARNING_DAYS = 365
+
+
+class StaleDataWarning(UserWarning):
+    """The loaded FSA code lists are old enough that listing status and
+    fund-issuer membership have likely drifted."""
 
 
 # --- CSV schema resolution ---------------------------------------------------
@@ -133,8 +144,23 @@ def translate_industry_to_english(value: str | None) -> str | None:
 
 
 class EntityType(Enum):
-    """Classification of EDINET-registered entities."""
-    FUND = "fund"
+    """Classification of EDINET-registered entities.
+
+    Two properties of the underlying FSA registry worth knowing:
+
+    - FUND_ISSUER (renamed from FUND in 0.8.0) is built from the fund
+      registry's *issuer* column — it means "this entity has issued fund
+      products", not "this entity is a fund". Trust banks routinely appear
+      here as issuers of beneficiary certificates. One issuer code can back
+      hundreds of fund rows.
+    - Listing status is a snapshot as of the CSV download date, not a
+      stable attribute: when a company delists (going-private buyout,
+      merger), the registry flips it to 非上場 and blanks its securities
+      code, and newly-listed companies can lag the registry by weeks.
+      Classifications answer "how did the registry record this entity on
+      the data date?" — see ``data_version`` for that date.
+    """
+    FUND_ISSUER = "fund_issuer"
     LISTED_COMPANY = "listed_company"
     UNLISTED_COMPANY = "unlisted_company"
     INDIVIDUAL = "individual"
@@ -154,8 +180,14 @@ class EntityClassifier:
     Usage:
         classifier = EntityClassifier()
         classifier.get_entity_type('E00001')  # -> EntityType.LISTED_COMPANY
-        classifier.is_fund('E12345')          # -> True
+        classifier.is_fund_issuer('E12345')   # -> True
         classifier.is_known('E99999')         # -> False (stale data indicator)
+
+    Classifications reflect the bundled CSVs' download date (see
+    ``data_version``), not today — listing status in particular flips when
+    companies delist. A ``StaleDataWarning`` is emitted when the bundled
+    data is older than ``STALE_DATA_WARNING_DAYS``; pass freshly downloaded
+    CSVs via ``edinet_codes_path`` / ``fund_codes_path`` to silence it.
     """
 
     def __init__(self, edinet_codes_path: str = None, fund_codes_path: str = None):
@@ -178,7 +210,32 @@ class EntityClassifier:
         self.edinet_codes_date = self._extract_date(self.edinet_codes_path)
         self.fund_codes_date = self._extract_date(self.fund_codes_path)
 
+        self._warn_if_stale()
         self._load_data()
+
+    def _warn_if_stale(self) -> None:
+        """Warn when the loaded code lists are old enough to misclassify.
+
+        Listing status flips on every delisting/IPO wave, so classifications
+        age with the data files. The dates come from the filenames
+        (``_extract_date``); undated files are skipped rather than guessed.
+        """
+        for label, stamp in (('EdinetcodeDlInfo', self.edinet_codes_date),
+                             ('FundcodeDlInfo', self.fund_codes_date)):
+            try:
+                file_date = datetime.strptime(stamp, '%Y-%m-%d').date()
+            except ValueError:
+                continue
+            age = (datetime.now().date() - file_date).days
+            if age > STALE_DATA_WARNING_DAYS:
+                warnings.warn(
+                    f"{label} is {age} days old ({stamp}); listing status "
+                    f"and fund-issuer membership drift as companies delist "
+                    f"and register. Download current code lists from EDINET "
+                    f"and pass them via edinet_codes_path / fund_codes_path.",
+                    StaleDataWarning,
+                    stacklevel=3,
+                )
 
     def _find_latest_file(self, prefix: str) -> str | None:
         """Find the latest dated file matching prefix in data directory."""
@@ -331,7 +388,7 @@ class EntityClassifier:
 
         # Fund registry takes precedence over unlisted classification.
         if edinet_code in self._fund_edinet_codes:
-            return EntityType.FUND
+            return EntityType.FUND_ISSUER
 
         if not entity:
             return EntityType.UNKNOWN
@@ -343,8 +400,12 @@ class EntityClassifier:
 
         return EntityType.UNLISTED_COMPANY
 
-    def is_fund(self, edinet_code: str) -> bool:
-        """Check if entity is an investment fund issuer."""
+    def is_fund_issuer(self, edinet_code: str) -> bool:
+        """Check if the entity appears in the fund registry's issuer column.
+
+        Renamed from ``is_fund`` in 0.8.0: membership means "has issued
+        fund products" (trust banks qualify), not "is a fund".
+        """
         return edinet_code in self._fund_edinet_codes
 
     def is_known(self, edinet_code: str) -> bool:
