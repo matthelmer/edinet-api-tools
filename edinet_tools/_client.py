@@ -35,12 +35,33 @@ class _ApiClient:
         optionally filtered to a single document type code."""
         try:
             response = fetch_documents_list(date, api_key=self.api_key)
+
+            # EDINET reports failures INSIDE a 200 body — either a top-level
+            # StatusCode ({"StatusCode": 401, "message": "Access denied..."})
+            # or metadata.status. Reading those as an empty filing day is a
+            # silent-failure trap (a bad API key looked exactly like a quiet
+            # Saturday); fail loud instead. A healthy body with zero results
+            # remains a legitimate empty day.
+            status = response.get('StatusCode',
+                                  (response.get('metadata') or {}).get('status'))
+            if status is not None and str(status) != '200':
+                message = (response.get('message')
+                           or (response.get('metadata') or {}).get('message')
+                           or 'no message in response body')
+                if str(status) == '401':
+                    raise AuthenticationError(
+                        f"EDINET rejected the API key: {message}")
+                raise APIError(
+                    f"EDINET error {status} for {date}: {message}")
+
             documents = response.get('results', [])
 
             if doc_type:
                 documents = [d for d in documents if d.get('docTypeCode') == doc_type]
 
             return documents
+        except (AuthenticationError, APIError):
+            raise
         except Exception as e:
             logger.error(f"Error fetching documents for {date}: {e}")
             if "401" in str(e) or "unauthorized" in str(e).lower():
