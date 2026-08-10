@@ -5,12 +5,12 @@
 ### Breaking
 
 - **`net_assets`, `net_income`, and `prior_net_income` are removed. Each is replaced by an explicit pair.** A consolidated filing carries two versions of these figures: one for the parent's own shareholders, and one that includes minority (non-controlling) interests. The old single fields silently picked one or the other depending on the accounting standard and the filer's tagging. The new names say which is which.
-  - `net_assets_owners` / `net_assets_total`. J-GAAP filers never file an owners-only net assets figure, so `net_assets_owners` is `None` for them. The filed components ship instead: `shareholders_equity` (株主資本), `valuation_translation_adjustments` (評価換算差額等), and `non_controlling_interests` (非支配株主持分). Components are never summed into a derived figure.
+  - `net_assets_owners` / `net_assets_total`. J-GAAP filers never file an owners-only net assets figure, so `net_assets_owners` is `None` for them.  The filed components ship instead: `shareholders_equity` (株主資本), `valuation_translation_adjustments` (評価換算差額等), and `non_controlling_interests` (非支配株主持分).  Components are never summed into a derived figure.
   - `net_income_owners` / `net_income_total`. `net_income_total` is `None` for nearly all US-GAAP filers because no such element exists in that taxonomy.
   - `prior_net_income_owners` / `prior_net_income_total`, read from the prior-year context.
-  - Reading a removed field raises `AttributeError` naming its replacements. Constructing a report with one raises `TypeError`. See MIGRATING.md.
+  - Reading a removed field raises `AttributeError` naming its replacements.  Constructing a report with one raises `TypeError`. See MIGRATING.md.
   - There is deliberately no `owners <= total` rule. Minority shareholders can post a loss, which pushes the owners figure above the total. That is a real filed result, pinned in the test panel (HOYA, fiscal 2026-03).
-- **`EntityType.FUND` is renamed `EntityType.FUND_ISSUER`** (value `"fund"` becomes `"fund_issuer"`), and `EntityClassifier.is_fund()` becomes `is_fund_issuer()`. The classification comes from the fund registry's issuer column. It means "this entity has issued fund products", not "this entity is a fund". Trust banks appear there routinely, so the old name invited misreads.
+- **`EntityType.FUND` is renamed `EntityType.FUND_ISSUER`** (value `"fund"` becomes `"fund_issuer"`), and `EntityClassifier.is_fund()` becomes `is_fund_issuer()`.  The classification comes from the fund registry's issuer column.  It means "this entity has issued fund products", not "this entity is a fund".  Trust banks appear there routinely, so the old name invited misreads.  Will likely re-evaluate EntityType usage in future release.
 
 ### Added
 

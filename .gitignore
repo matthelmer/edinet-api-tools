@@ -21,9 +21,7 @@ dist/
 *.egg-info/
 
 # Ignore all .md files except README.md, CHANGELOG.md, MIGRATING.md, and
-# docs/ownership-basis.md
 *.md
 !README.md
 !CHANGELOG.md
 !MIGRATING.md
-!docs/ownership-basis.md

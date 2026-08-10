@@ -24,10 +24,9 @@ happened to tag. They're now always an explicit pair.
 Three new filed-fact fields also ship the J-GAAP balance-sheet components
 directly: `shareholders_equity` (株主資本), `valuation_translation_adjustments`
 (評価換算差額等), `non_controlling_interests` (非支配株主持分 / NCI). None are
-summed into `net_assets_owners` for you — see the README's "Ownership
-basis" section (or [docs/ownership-basis.md](docs/ownership-basis.md)) for
-the full field table and how to compute a J-GAAP owners-only equity figure
-yourself.
+summed into `net_assets_owners` for you; see the README's "Ownership basis"
+section. A J-GAAP owners-only equity figure is `shareholders_equity +
+valuation_translation_adjustments`, computed by you.
 
 **Fix:** replace `report.net_assets` with `net_assets_owners` or
 `net_assets_total` depending on which basis your code needs; same for
