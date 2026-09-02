@@ -11,7 +11,7 @@ import os
 from typing import Any, Dict, List, Optional, Union
 import datetime
 
-from .api import fetch_documents_list, fetch_document
+from .api import fetch_documents_list, fetch_document, is_edinet_error_body, is_zip_payload
 from .exceptions import (
     AuthenticationError, DocumentNotFoundError, ProcessingError, APIError,
 )
@@ -123,16 +123,12 @@ class _ApiClient:
     @staticmethod
     def _is_json_error_response(response_bytes: bytes) -> bool:
         """True when the response is a JSON error body rather than a ZIP."""
-        try:
-            data = json.loads(response_bytes.decode('utf-8'))
-            return 'metadata' in data and 'status' in data.get('metadata', {})
-        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
-            return False
+        return is_edinet_error_body(response_bytes)
 
     @staticmethod
     def _is_zip_response(response_bytes: bytes) -> bool:
         """True when the response starts with the ZIP magic bytes (PK)."""
-        return len(response_bytes) > 2 and response_bytes[:2] == b'PK'
+        return is_zip_payload(response_bytes)
 
 
 # Module-level state

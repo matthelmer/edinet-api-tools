@@ -169,24 +169,24 @@ class TestRealAPIContracts:
         assert '401' in response_str or 'unauthorized' in response_str or 'access denied' in response_str or 'subscription key' in response_str
     
     def test_api_document_not_found_handling(self):
-        """Test API handling of non-existent document IDs"""
+        """A non-existent document ID raises a typed error (fail-loud contract).
+
+        EDINET answers with an in-body error envelope under HTTP 200; since the
+        fetch_document fail-loud change it is raised as DocumentNotFoundError
+        (status 404) or APIError (any other status, e.g. 400 Bad Request for a
+        malformed id) — never handed back as document bytes.
+        """
+        from edinet_tools.exceptions import APIError, DocumentNotFoundError
         fake_doc_id = "S999FAKE999"
-        
-        # API should return error response, not raise exception
-        result = fetch_document(fake_doc_id, api_key=self.api_key)
-        
-        # Result could be bytes or dict depending on API response
-        if isinstance(result, bytes):
-            result_str = result.decode('utf-8').lower()
-        else:
-            result_str = str(result).lower()
-        
-        # Should get error response (could be 404, 400, or other error)
-        assert ('404' in result_str or 'not found' in result_str or 
-                'statuscode' in result_str or 'error' in result_str or
-                'invalid' in result_str or 'bad request' in result_str or
-                'status' in result_str), f"Expected error response, got: {result_str[:200]}"
-    
+
+        with pytest.raises((DocumentNotFoundError, APIError)) as exc_info:
+            fetch_document(fake_doc_id, api_key=self.api_key)
+
+        msg = str(exc_info.value).lower()
+        assert fake_doc_id.lower() in msg
+        assert ('404' in msg or 'not found' in msg or '400' in msg or 'bad request' in msg
+                or 'status' in msg), f"Expected EDINET status text in error, got: {msg[:200]}"
+
 
 @pytest.mark.integration
 class TestCriticalDocumentTypeRetrieval:

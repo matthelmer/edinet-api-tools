@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`fetch_document` now raises on EDINET's in-body "no document" answer instead of returning it as bytes.** EDINET reports "no such form for this filing" inside an HTTP 200 response — a 142-byte JSON envelope (`{"metadata": {"status": "404", "message": "Not Found"}}`). The most common case is `type=5` (XBRL-CSV) for a filing that has no XBRL at all: foreign-form filers, parent-company reports, shelf-registration amendments. The low-level function used to hand those bytes back like a document; anyone who saved them got a "zip" that fails much later with `BadZipFile`, far from the cause. It now raises `DocumentNotFoundError` (status 404) or `APIError` (any other status), with no retry — a definitive answer is not a transient failure. `EdinetClient` already raised on this case; the low-level function now matches it, so every caller benefits. This is the per-document twin of the 0.8.0 fix that made the document *list* endpoint fail loud. Callers that relied on receiving the JSON body as bytes must catch the exception instead.
+- New public helpers `is_zip_payload(bytes)` and `is_edinet_error_body(bytes)` in `edinet_tools.api`, for callers that handle raw payloads themselves. The client's private sniffers now delegate to them.
+
 ## v0.8.0 — 2026-08-10
 
 ### Breaking
