@@ -9,6 +9,7 @@ import time
 from typing import List, Dict, Union
 
 from .config import EDINET_API_KEY, SUPPORTED_DOC_TYPES
+from .exceptions import APIError, DocumentNotFoundError
 
 # EDINET API v2 lives on api.edinet-fsa.go.jp. The old disclosure.edinet-fsa.go.jp
 # host stopped serving the API at the end of August 2026: it now 301s to
@@ -18,6 +19,42 @@ EDINET_API_BASE = "https://api.edinet-fsa.go.jp/api/v2"
 
 # Use module-specific logger
 logger = logging.getLogger(__name__)
+
+
+def is_zip_payload(content: bytes) -> bool:
+    """True when ``content`` starts with the ZIP magic bytes (``PK``)."""
+    return bool(content) and len(content) > 2 and content[:2] == b'PK'
+
+
+def _raise_for_error_body(doc_id: str, type: int, content: bytes) -> None:
+    """Turn EDINET's in-body error envelope into a typed exception."""
+    meta = json.loads(content.decode('utf-8')).get('metadata', {})
+    status = str(meta.get('status', 'Unknown'))
+    message = meta.get('message', 'Unknown error')
+    if status == '404' or 'not found' in str(message).lower():
+        raise DocumentNotFoundError(
+            doc_id,
+            f"EDINET has no type={type} form for document '{doc_id}' (status 404: {message}). "
+            f"For type=5 this usually means the filing carries no XBRL (foreign-form filers, "
+            f"parent-company reports, shelf-registration amendments); type=1 (HTML) or "
+            f"type=2 (PDF) may still exist.")
+    raise APIError(f"EDINET returned status {status} for document '{doc_id}' (type={type}): {message}")
+
+
+def is_edinet_error_body(content: bytes) -> bool:
+    """True when ``content`` is EDINET's in-body error envelope.
+
+    EDINET reports "no such document / form" inside an HTTP 200 response as
+    ``{"metadata": {"status": "404", "message": "Not Found"}}`` — e.g. a
+    type=5 (XBRL-CSV) request for a filing that has no XBRL. A healthy
+    document response is binary (ZIP or PDF), never this JSON shape.
+    """
+    try:
+        data = json.loads(content.decode('utf-8'))
+    except (UnicodeDecodeError, ValueError, AttributeError):
+        return False
+    meta = data.get('metadata') if isinstance(data, dict) else None
+    return isinstance(meta, dict) and 'status' in meta
 
 
 # API interaction functions
@@ -158,9 +195,15 @@ def fetch_document(doc_id: str, type: int = 5, max_retries: int = 3, delay_secon
                           raise urllib.error.HTTPError(full_url, response.getcode(), f"HTTP Error: {response.getcode()}", response.headers, None)
 
                  content = response.read()
+                 if is_edinet_error_body(content):
+                     # EDINET reports "no such form" inside HTTP 200. A definitive
+                     # answer — raise typed, do not retry, never hand back as bytes.
+                     _raise_for_error_body(doc_id, type, content)
                  logger.info(f"Successfully fetched document {doc_id}.")
                  return content
 
+        except (DocumentNotFoundError, APIError):
+            raise
         except urllib.error.URLError as e:
             logger.error(f"URL Error fetching document {doc_id}: {e}")
             if attempt < max_retries - 1:
