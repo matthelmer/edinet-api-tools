@@ -9,7 +9,7 @@ import time
 from typing import List, Dict, Union
 
 from .config import EDINET_API_KEY, SUPPORTED_DOC_TYPES
-from .exceptions import APIError, DocumentNotFoundError
+from .exceptions import APIError, AuthenticationError, DocumentNotFoundError
 
 # EDINET API v2 lives on api.edinet-fsa.go.jp. The old disclosure.edinet-fsa.go.jp
 # host stopped serving the API at the end of August 2026: it now 301s to
@@ -55,6 +55,32 @@ def is_edinet_error_body(content: bytes) -> bool:
         return False
     meta = data.get('metadata') if isinstance(data, dict) else None
     return isinstance(meta, dict) and 'status' in meta
+
+
+def _raise_for_list_error_body(date_str: str, data) -> None:
+    """Raise when a documents-list body carries an in-body error status.
+
+    EDINET reports failures inside an HTTP 200 body, in two shapes: a
+    top-level ``StatusCode`` (``{"StatusCode": 401, "message": "Access
+    denied..."}``) or ``metadata.status``. Read as data, a rejected API key
+    is indistinguishable from a day with no filings -- the silent-failure
+    trap 0.8.0 closed at the client layer and 0.8.1 closes here, so callers
+    that use the function directly are covered too.
+
+    A healthy body with zero results is a legitimate empty day (JP holidays),
+    and a body carrying no status key at all is not an error either.
+    """
+    if not isinstance(data, dict):
+        return
+    status = data.get('StatusCode', (data.get('metadata') or {}).get('status'))
+    if status is None or str(status) == '200':
+        return
+    message = (data.get('message')
+               or (data.get('metadata') or {}).get('message')
+               or 'no message in response body')
+    if str(status) == '401':
+        raise AuthenticationError(f"EDINET rejected the API key: {message}")
+    raise APIError(f"EDINET error {status} for {date_str}: {message}")
 
 
 # API interaction functions
@@ -121,9 +147,14 @@ def fetch_documents_list(date: Union[str, datetime.date],
 
 
                 data = json.loads(response.read().decode('utf-8'))
+                # EDINET answers 200 with an error body; a definitive answer,
+                # so raise typed and do not spend the retry budget on it.
+                _raise_for_list_error_body(date_str, data)
                 logger.info(f"Successfully fetched documents for {date_str}.")
                 return data
 
+        except (AuthenticationError, APIError):
+            raise
         except urllib.error.URLError as e:
             logger.error(f"URL Error fetching documents for {date_str}: {e}")
             if attempt < max_retries - 1:

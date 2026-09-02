@@ -152,21 +152,23 @@ class TestRealAPIContracts:
         print(f"Date range ({start_date} to {end_date}): {len(results)} total documents")
     
     def test_api_error_handling_with_invalid_key(self):
-        """Test API error handling with invalid credentials"""
+        """An invalid key raises AuthenticationError (fail-loud contract).
+
+        EDINET answers HTTP 200 with {"StatusCode": 401, "message": "Access
+        denied..."}. Returning that as data made a rejected key look exactly
+        like a day with no filings; since the 0.8.1 documents-list fail-loud
+        change it is raised, carrying EDINET's own message.
+        """
+        from edinet_tools.exceptions import AuthenticationError
         invalid_key = "invalid_test_key_12345"
         test_date = date.today() - timedelta(days=1)
         date_str = test_date.strftime('%Y-%m-%d')
-        
-        # API should return error response dict, not raise exception
-        result = fetch_documents_list(date_str, api_key=invalid_key)
-        
-        # Should get 401 error response
-        assert isinstance(result, dict), "API should return error response as dict"
-        assert 'statusCode' in result or 'message' in result, "Error response should have statusCode or message"
-        
-        # Check for authentication error indicators
-        response_str = str(result).lower()
-        assert '401' in response_str or 'unauthorized' in response_str or 'access denied' in response_str or 'subscription key' in response_str
+
+        with pytest.raises(AuthenticationError) as exc_info:
+            fetch_documents_list(date_str, api_key=invalid_key)
+
+        msg = str(exc_info.value).lower()
+        assert 'access denied' in msg or 'subscription key' in msg or 'unauthorized' in msg
     
     def test_api_document_not_found_handling(self):
         """A non-existent document ID raises a typed error (fail-loud contract).
