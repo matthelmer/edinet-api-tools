@@ -10,6 +10,12 @@ from typing import List, Dict, Union
 
 from .config import EDINET_API_KEY, SUPPORTED_DOC_TYPES
 
+# EDINET API v2 lives on api.edinet-fsa.go.jp. The old disclosure.edinet-fsa.go.jp
+# host stopped serving the API at the end of August 2026: it now 301s to
+# disclosure2.edinet-fsa.go.jp, which 302s to an HTML error page, so every
+# fetch came back as "Expecting value" JSON errors rather than a clean failure.
+EDINET_API_BASE = "https://api.edinet-fsa.go.jp/api/v2"
+
 # Use module-specific logger
 logger = logging.getLogger(__name__)
 
@@ -44,7 +50,7 @@ def fetch_documents_list(date: Union[str, datetime.date],
     else:
         raise TypeError("Date must be 'YYYY-MM-DD' or datetime.date")
 
-    url = "https://disclosure.edinet-fsa.go.jp/api/v2/documents.json"
+    url = f"{EDINET_API_BASE}/documents.json"
     params = {
         "date": date_str,
         "type": type,   # '1' is metadata only; '2' is metadata and results
@@ -122,7 +128,7 @@ def fetch_document(doc_id: str, type: int = 5, max_retries: int = 3, delay_secon
         api_key: Optional API key override.
         timeout: Timeout in seconds for the HTTP request (default 60).
     """
-    url = f'https://disclosure.edinet-fsa.go.jp/api/v2/documents/{doc_id}'
+    url = f'{EDINET_API_BASE}/documents/{doc_id}'
     params = {
       "type": type,
       "Subscription-Key": api_key or EDINET_API_KEY,

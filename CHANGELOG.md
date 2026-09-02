@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The client now calls EDINET API v2 on `api.edinet-fsa.go.jp`.** The old `disclosure.edinet-fsa.go.jp` host stopped serving `/api/v2` at the end of August 2026 (it redirects to an HTML error page), so every document-list and document fetch failed with a JSON decode error. `edinet_tools.api.EDINET_API_BASE` carries the host.
+
 ## v0.8.0 — 2026-08-10
 
 ### Breaking

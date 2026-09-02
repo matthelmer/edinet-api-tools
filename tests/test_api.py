@@ -38,7 +38,7 @@ class TestFetchDocumentsList:
             fetch_documents_list('2025-01-08', api_key='test_key')
             
             called_url = mock_urlopen.call_args[0][0]
-            assert 'disclosure.edinet-fsa.go.jp' in called_url
+            assert 'api.edinet-fsa.go.jp' in called_url
             assert 'date=2025-01-08' in called_url
             assert 'type=2' in called_url
             assert 'Subscription-Key=test_key' in called_url
@@ -251,7 +251,7 @@ class TestFetchDocument:
                 fetch_document(doc_id, api_key='test_key')
                 
                 called_url = mock_urlopen.call_args[0][0]
-                assert 'disclosure.edinet-fsa.go.jp' in called_url  # Correct domain
+                assert 'api.edinet-fsa.go.jp' in called_url  # Correct domain
                 assert f'documents/{doc_id}' in called_url
                 assert 'type=5' in called_url  # CSV format
                 assert 'Subscription-Key=test_key' in called_url
