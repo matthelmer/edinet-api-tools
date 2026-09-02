@@ -64,6 +64,23 @@ class TestInBodyErrorsRaise:
         mock_sleep.assert_not_called()
 
 
+    def test_non_401_top_level_status_raises_api_error(self):
+        """The StatusCode shape is not only used for auth failures."""
+        body = b'{"StatusCode": 500, "message": "Internal Server Error"}'
+        with patch('urllib.request.urlopen', return_value=_urlopen_returning(body)):
+            with pytest.raises(APIError) as exc_info:
+                fetch_documents_list('2026-08-28', api_key='k')
+        assert 'Internal Server Error' in str(exc_info.value)
+        assert '500' in str(exc_info.value)
+
+    def test_error_status_with_no_message_still_raises(self):
+        """EDINET's message is not guaranteed; the status alone must not be swallowed."""
+        with patch('urllib.request.urlopen', return_value=_urlopen_returning(b'{"StatusCode": 403}')):
+            with pytest.raises(APIError) as exc_info:
+                fetch_documents_list('2026-08-28', api_key='k')
+        assert '403' in str(exc_info.value)
+
+
 class TestHealthyBodiesUnchanged:
     def test_empty_day_is_still_a_legitimate_empty_day(self):
         """JP holidays are real - zero results with a 200 status must not raise."""
@@ -76,6 +93,11 @@ class TestHealthyBodiesUnchanged:
         with patch('urllib.request.urlopen', return_value=_urlopen_returning(b'{"results": [{"docID": "S100A"}]}')):
             out = fetch_documents_list('2026-08-28', api_key='k')
         assert out['results'][0]['docID'] == 'S100A'
+
+    def test_non_dict_body_is_passed_through(self):
+        """A JSON body that is not an object carries no status to check."""
+        with patch('urllib.request.urlopen', return_value=_urlopen_returning(b'[]')):
+            assert fetch_documents_list('2026-08-28', api_key='k') == []
 
     def test_results_returned_with_healthy_status(self):
         body = b'{"metadata": {"status": "200"}, "results": [{"docID": "S100A"}, {"docID": "S100B"}]}'
