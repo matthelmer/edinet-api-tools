@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Typed string fields no longer carry raw HTML entity references.** EDINET's XBRL-CSV emits `&amp;` (and occasionally other references) inside string values — `Baillie Gifford &amp; Co`, `日本M&amp;Aセンター`. The joint-holder path of the large-holding parser already decoded these; the top-level fields did not, so `filer_name`, `target_company`, and every other typed string read through `extract_value` came back escaped, and the same filer could resolve to two identities depending on which path produced the name. `extract_value` now decodes well-formed, semicolon-terminated references in every parser. Only well-formed references are touched: a bare `&` in `M&A` or `R&D` is left alone, and legacy no-semicolon forms are deliberately not decoded (`html.unescape` alone would turn `&ETH` inside a name into `Ð`). The fact-bag is unchanged: `raw_fields`, `raw_facts`, `unmapped_fields`, and `text_blocks` keep the filed bytes. New public helper `edinet_tools.parsers.extraction.unescape_entities` for callers that read raw values themselves.
+
 ## v0.8.1 — 2026-09-02
 
 ### Fixed

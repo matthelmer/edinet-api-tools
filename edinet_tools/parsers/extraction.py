@@ -4,6 +4,7 @@ ZIP and CSV extraction utilities for EDINET documents.
 Handles in-memory extraction of XBRL CSV data from EDINET ZIP files.
 """
 import csv
+import html
 import io
 import logging
 import re
@@ -212,6 +213,21 @@ def parse_date(value: Any) -> Optional[date]:
     return None
 
 
+# EDINET's XBRL-CSV carries raw HTML entity references in some string values
+# (`Baillie Gifford &amp; Co`, `日本M&amp;Aセンター`). Only well-formed,
+# semicolon-terminated references are decoded: html.unescape alone also
+# rewrites legacy no-semicolon forms, which would turn an ordinary '&ETH' or
+# '&para' inside a name into 'Ð' / '¶'.
+_ENTITY_RE = re.compile(r'&(?:#\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);')
+
+
+def unescape_entities(value):
+    """Decode well-formed HTML entity references in a string; pass through otherwise."""
+    if not isinstance(value, str) or '&' not in value:
+        return value
+    return _ENTITY_RE.sub(lambda m: html.unescape(m.group(0)), value)
+
+
 def extract_value(
     csv_files: list,
     element_id: str,
@@ -239,7 +255,7 @@ def extract_value(
                     if entry.get('要素ID') == element_id:
                         context = entry.get('コンテキストID', '')
                         if context == pattern:
-                            return entry.get('値')
+                            return unescape_entities(entry.get('値'))
         return None
 
     # No context patterns - return first (or last) match
@@ -252,8 +268,8 @@ def extract_value(
                 if get_last:
                     result = value  # Keep updating to get last
                 else:
-                    return value  # Return first match
-    return result
+                    return unescape_entities(value)  # Return first match
+    return unescape_entities(result)
 
 
 def get_context_patterns(is_consolidated: bool, period: str) -> list[str]:

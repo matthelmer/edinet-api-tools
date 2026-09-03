@@ -1239,3 +1239,74 @@ class TestExtractCsvFromZipEncodingOrder:
             if row['要素ID'] == 'jpcrp_cor:NetSalesSummaryOfBusinessResults'
         )
         assert net_sales_row['値'] == '50000000000'
+
+
+# =====================================================================
+# HTML entity references in typed string fields
+# =====================================================================
+
+class TestEntityUnescape:
+    """EDINET's XBRL-CSV carries raw HTML entity references in some string
+    values (`Baillie Gifford &amp; Co`). Typed string fields come back
+    unescaped; the fact-bag (raw_fields / raw_facts / text_blocks) keeps the
+    filed bytes."""
+
+    def test_helper_unescapes_wellformed_references_only(self):
+        from edinet_tools.parsers.extraction import unescape_entities
+        assert unescape_entities('Baillie Gifford &amp; Co') == 'Baillie Gifford & Co'
+        assert unescape_entities('&#38;&#x26;&lt;&gt;&quot;') == '&&<>"'
+        # A bare ampersand is a bare ampersand.
+        assert unescape_entities('AT&T / R&D / M&A') == 'AT&T / R&D / M&A'
+        # Legacy no-semicolon forms are NOT touched — html.unescape would turn
+        # '&ETH' into 'Ð' and '&para' into '¶' inside ordinary names.
+        assert unescape_entities('H&ETH Ltd &para') == 'H&ETH Ltd &para'
+        assert unescape_entities(None) is None
+        assert unescape_entities('') == ''
+
+    def test_extract_value_returns_unescaped_string(self):
+        from edinet_tools.parsers.extraction import extract_value
+        rows = [make_csv_row('jplvh_cor:Name', 'FilingDateInstant', 'Baillie Gifford &amp; Co')]
+        csv_files = [{'filename': 'x.csv', 'data': rows}]
+        assert extract_value(csv_files, 'jplvh_cor:Name') == 'Baillie Gifford & Co'
+        assert extract_value(csv_files, 'jplvh_cor:Name',
+                             context_patterns=['FilingDateInstant']) == 'Baillie Gifford & Co'
+
+    def test_large_holding_filer_and_target_names_unescaped_fact_bag_raw(self):
+        rows = [
+            make_csv_row('jplvh_cor:EDINETCodeDEI', 'FilingDateInstant', 'E99001'),
+            make_csv_row('jplvh_cor:Name', 'FilingDateInstant',
+                         'ベイリー・ギフォード・アンド・カンパニー(Baillie Gifford &amp; Co)'),
+            make_csv_row('jplvh_cor:NameOfIssuer', 'FilingDateInstant', '株式会社日本M&amp;Aセンター'),
+            make_csv_row('jplvh_cor:SecurityCodeOfIssuer', 'FilingDateInstant', '21270'),
+            make_csv_row('jplvh_cor:HoldingRatioOfShareCertificatesEtc', 'FilingDateInstant', '5.01'),
+        ]
+        doc = make_mock_doc('S100LH2', '350', rows)
+        r = parse_large_holding(doc)
+        assert r.filer_name == 'ベイリー・ギフォード・アンド・カンパニー(Baillie Gifford & Co)'
+        assert r.target_company == '株式会社日本M&Aセンター'
+        # Fact-bag preservation: the filed bytes are still there.
+        assert r.raw_fields['jplvh_cor:Name'].endswith('&amp; Co)')
+        assert any(f.value == '株式会社日本M&amp;Aセンター' for f in r.raw_facts)
+
+    def test_holder_normalizer_shares_the_helper(self):
+        from edinet_tools.parsers.large_holding import _normalize_holder_value
+        assert _normalize_holder_value('HOKUBU &amp; Industrial', str) == 'HOKUBU & Industrial'
+        assert _normalize_holder_value('H&ETH Ltd', str) == 'H&ETH Ltd'
+
+    def test_real_filing_baillie_gifford_2026_09_03(self):
+        """S100Z044 (2026-09-03): Baillie Gifford's 5%+ filing on 日本M&Aセンター.
+        Every name element in the filed CSV carries '&amp;'. Typed fields on the
+        top-level report AND the joint-holder row must agree on the decoded name."""
+        from tests.conftest import load_fixture
+        csv_files = load_fixture('large_holding', 'baillie_gifford_amp')
+        r = parse_large_holding(csv_files=csv_files, doc_id='S100Z044', doc_type_code='350')
+        clean = 'ベイリー・ギフォード・アンド・カンパニー(Baillie Gifford & Co)'
+        assert r.filer_name == clean
+        assert r.filer_name_en == 'Baillie Gifford & Co'
+        assert r.joint_holders and r.joint_holders[0].name_jp == clean
+        assert r.joint_holders[0].name_en == 'Baillie Gifford & Co'
+        # The filed bytes survive in the fact-bag. (raw_fields is last-wins per
+        # element and the last Name row here is the second joint holder, Baillie
+        # Gifford Overseas Limited, which has no '&' — so check raw_facts.)
+        assert sum('&amp;' in (f.value or '') for f in r.raw_facts) == 6
+        assert len(r.joint_holders) == 2

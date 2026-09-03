@@ -9,7 +9,6 @@ PROCESSING PHILOSOPHY: Store raw XBRL values faithfully. No interpretation.
 - Text fields stored as-is
 - Downstream consumers determine meaning
 """
-import html
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -24,6 +23,7 @@ from .extraction import (
     parse_percentage,
     parse_int,
     parse_date,
+    unescape_entities,
 )
 
 
@@ -261,7 +261,7 @@ def _normalize_holder_value(raw: str, typ: type):
         except (ValueError, TypeError):
             return None
     # EDINET emits raw HTML entity references in some filer names (&amp; etc.).
-    return html.unescape(str(raw).strip())
+    return unescape_entities(str(raw).strip())
 
 
 def _extract_joint_holders(csv_files: list) -> list[JointHolder]:
