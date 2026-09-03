@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .base import ParsedReport
-from .extraction import extract_csv_from_zip, extract_value
+from .extraction import unescape_entities, extract_csv_from_zip, extract_value
 
 
 # Common DEI elements found across most document types
@@ -120,7 +120,7 @@ def parse_raw(document) -> RawReport:
     for csv_file in csv_files:
         for row in csv_file.get('data', []):
             elem_id = row.get('要素ID', '')
-            value = row.get('値')
+            value = unescape_entities(row.get('値'))
 
             if not elem_id or value is None:
                 continue

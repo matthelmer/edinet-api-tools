@@ -125,6 +125,8 @@ def _read_csv_from_zip(zf: zipfile.ZipFile, name: str) -> list[dict[str, Any]]:
         return []
 
     records = parse_strict_tsv(content.strip(), fieldnames=_EDINET_CSV_COLUMNS)
+    for rec in records or []:
+        rec['値'] = unescape_entities(rec.get('値'))
     return records or []
 
 
@@ -393,7 +395,7 @@ def categorize_elements(
     for csv_file in csv_files or []:
         for row in csv_file.get('data', []):
             elem_id = row.get('要素ID', '')
-            value = row.get('値')
+            value = unescape_entities(row.get('値'))
 
             if not elem_id or value is None:
                 continue
