@@ -4,7 +4,7 @@ EDINET Tools - Python package for accessing Japanese corporate financial data.
 Python library for Japanese financial disclosure data.
 """
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 __author__ = "Matt Helmer"
 __description__ = "Python package for accessing Japanese corporate financial data from EDINET"
 
