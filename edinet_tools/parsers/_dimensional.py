@@ -20,6 +20,8 @@ This primitive is used by items #1 (segments), #3 (top-shareholders),
 and #5 (directors+comp) in the 0.7.0+ release family.
 """
 import re
+
+from .extraction import unescape_entities
 from dataclasses import dataclass, field
 
 
@@ -131,7 +133,7 @@ def extract_dimensional(csv_files: list, element_id: str) -> list:
                 continue
 
             context_id = row.get('コンテキストID', '') or ''
-            value = row.get('値', '') or ''
+            value = unescape_entities(row.get('値', '') or '')
             unit_id = row.get('ユニットID', '') or None
             if unit_id == '':
                 unit_id = None

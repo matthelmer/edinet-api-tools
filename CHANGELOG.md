@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **HTML entity references are now decoded at the read boundary, on every layer.** 0.8.2 decoded them in typed string fields only; `raw_fields`, `raw_facts`, `unmapped_fields`, `text_blocks`, and `DimensionalFact.value` still carried `&amp;` / `&gt;` as EDINET's XBRL-to-CSV export leaves them. The code is transport escaping, not a filed byte, so the raw layers now decode it too: `extract_csv_from_zip` decodes each cell as it is read, and `categorize_elements`, `extract_dimensional`, and the generic `parse_raw` decode values from pre-extracted `csv_files` the same way. Caller-supplied `csv_files` are never mutated. The decoder is unchanged from 0.8.2: well-formed, semicolon-terminated references only; a bare `&` and legacy no-semicolon forms are left alone. A sweep test feeds every document parser an all-escaped filing on both paths and asserts no code survives on any layer.
+
 ## v0.8.2 — 2026-09-03
 
 ### Fixed

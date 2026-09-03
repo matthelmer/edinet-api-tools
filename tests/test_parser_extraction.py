@@ -1284,9 +1284,11 @@ class TestEntityUnescape:
         r = parse_large_holding(doc)
         assert r.filer_name == 'ベイリー・ギフォード・アンド・カンパニー(Baillie Gifford & Co)'
         assert r.target_company == '株式会社日本M&Aセンター'
-        # Fact-bag preservation: the filed bytes are still there.
-        assert r.raw_fields['jplvh_cor:Name'].endswith('&amp; Co)')
-        assert any(f.value == '株式会社日本M&amp;Aセンター' for f in r.raw_facts)
+        # Boundary decode: the raw layers are decoded too — the code is EDINET's
+        # XML-to-CSV escaping, not a filed byte.
+        assert r.raw_fields['jplvh_cor:Name'].endswith('& Co)')
+        assert any(f.value == '株式会社日本M&Aセンター' for f in r.raw_facts)
+        assert not any('&amp;' in (f.value or '') for f in r.raw_facts)
 
     def test_holder_normalizer_shares_the_helper(self):
         from edinet_tools.parsers.large_holding import _normalize_holder_value
@@ -1305,8 +1307,75 @@ class TestEntityUnescape:
         assert r.filer_name_en == 'Baillie Gifford & Co'
         assert r.joint_holders and r.joint_holders[0].name_jp == clean
         assert r.joint_holders[0].name_en == 'Baillie Gifford & Co'
-        # The filed bytes survive in the fact-bag. (raw_fields is last-wins per
-        # element and the last Name row here is the second joint holder, Baillie
-        # Gifford Overseas Limited, which has no '&' — so check raw_facts.)
-        assert sum('&amp;' in (f.value or '') for f in r.raw_facts) == 6
+        # Raw layers are decoded at the boundary: the six escaped cells in the
+        # filed CSV come back as six decoded facts, none escaped.
+        assert sum('&amp;' in (f.value or '') for f in r.raw_facts) == 0
+        assert sum('Baillie Gifford & Co' in (f.value or '') for f in r.raw_facts) == 6
         assert len(r.joint_holders) == 2
+
+
+class TestBoundaryDecode:
+    """Every layer the parsers hand back is decoded: typed fields, raw_fields,
+    raw_facts, unmapped_fields, text_blocks, DimensionalFact.value — on both the
+    zip path and pre-extracted csv_files. Caller-supplied csv_files are not mutated."""
+
+    ROWS_ESCAPED = [
+        ('jplvh_cor:Name', 'FilingDateInstant', 'Baillie Gifford &amp; Co'),
+        ('jpcrp_cor:BusinessRisksTextBlock', 'FilingDateInstant', 'M&amp;A risk &gt; 5%'),
+        ('jpcrp_cor:SomeUnmappedThing', 'FilingDateInstant', 'R&amp;D'),
+    ]
+
+    def _csv_files(self):
+        return [{'filename': 'x.csv', 'data': [make_csv_row(*r) for r in self.ROWS_ESCAPED]}]
+
+    def test_zip_read_path_decodes_values(self):
+        from edinet_tools.parsers.extraction import extract_csv_from_zip
+        files = extract_csv_from_zip(make_zip_with_rows([make_csv_row(*r) for r in self.ROWS_ESCAPED]))
+        vals = [row['値'] for f in files for row in f['data']]
+        assert 'Baillie Gifford & Co' in vals and 'M&A risk > 5%' in vals
+        assert not any('&amp;' in v for v in vals)
+
+    def test_categorize_elements_decodes_every_layer_without_mutating_input(self):
+        from edinet_tools.parsers.extraction import categorize_elements
+        csv_files = self._csv_files()
+        raw_fields, text_blocks, unmapped, raw_facts = categorize_elements(csv_files, {'filer_name': 'jplvh_cor:Name'})
+        assert raw_fields['jplvh_cor:Name'] == 'Baillie Gifford & Co'
+        assert text_blocks['BusinessRisksTextBlock'] == 'M&A risk > 5%'
+        assert unmapped['SomeUnmappedThing'] == 'R&D'
+        assert {f.value for f in raw_facts} == {'Baillie Gifford & Co', 'M&A risk > 5%', 'R&D'}
+        # input untouched
+        assert csv_files[0]['data'][0]['値'] == 'Baillie Gifford &amp; Co'
+
+    def test_dimensional_facts_decoded(self):
+        from edinet_tools.parsers._dimensional import extract_dimensional
+        facts = extract_dimensional(self._csv_files(), 'jplvh_cor:Name')
+        assert [f.value for f in facts] == ['Baillie Gifford & Co']
+
+    def test_generic_raw_report_decoded(self):
+        from edinet_tools.parsers.generic import parse_raw
+        r = parse_raw(make_mock_doc('S100RAW', '999', [make_csv_row(*x) for x in self.ROWS_ESCAPED]))
+        assert r.raw_fields['jplvh_cor:Name'] == 'Baillie Gifford & Co'
+        assert r.text_blocks['BusinessRisksTextBlock'] == 'M&A risk > 5%'
+
+    def test_every_document_parser_returns_no_entity_code_anywhere(self):
+        """Sweep: each parse_* entry point, fed a filing whose every string cell
+        carries the code, hands back nothing escaped on any layer (zip path AND
+        pre-extracted csv_files where the parser accepts them)."""
+        import inspect, json, pkgutil, importlib
+        import edinet_tools.parsers as pkg
+        rows = [make_csv_row(*r) for r in self.ROWS_ESCAPED]
+        checked = 0
+        for m in pkgutil.iter_modules(pkg.__path__):
+            mod = importlib.import_module(f'edinet_tools.parsers.{m.name}')
+            for name, fn in inspect.getmembers(mod, inspect.isfunction):
+                if not name.startswith('parse_') or fn.__module__ != mod.__name__: continue
+                params = inspect.signature(fn).parameters
+                if 'document' not in params: continue          # value helpers (parse_int, ...)
+                reports = [fn(make_mock_doc('S100SWP', '120', rows))]
+                if 'csv_files' in params:
+                    reports.append(fn(csv_files=[{'filename': 'x.csv', 'data': rows}], doc_id='S100SWP', doc_type_code='120'))
+                for rep in reports:
+                    blob = json.dumps({k: v for k, v in vars(rep).items()}, default=str, ensure_ascii=False)
+                    assert '&amp;' not in blob and '&gt;' not in blob, f'{name} leaked an entity code'
+                checked += 1
+        assert checked >= 20, f'sweep covered only {checked} parsers'
