@@ -27,8 +27,9 @@ pip install edinet-tools
 
 Requires Python 3.10+. Standard library only.
 
-> **0.8.1 or later is required.** EDINET moved its API to `api.edinet-fsa.go.jp` at the end of
-> August 2026; earlier versions call the old host and cannot fetch anything.
+> **Use 0.8.2 or later.** EDINET moved its API to `api.edinet-fsa.go.jp` at the end of
+> August 2026; versions before 0.8.1 call the old host and cannot fetch anything. 0.8.1 leaves
+> HTML entity references (`&amp;`) in some filer and company names; 0.8.2 decodes them.
 >
 > Upgrading from 0.7.x? 0.8.0 contains breaking changes; see [MIGRATING.md](https://github.com/matthelmer/edinet-tools/blob/main/MIGRATING.md).
 
