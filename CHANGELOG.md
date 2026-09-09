@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **Joint 5% filings read at group grain.** `ownership_pct`, `prior_ownership_pct`, `ownership_change`, and `shares_held` now come from the group-total row, selected by XBRL context. On single-filer reports (no total row) they come from the lead filer's row. A blank total stays blank. Per-party figures are unchanged on `joint_holders`. Example: 光通信's 2026-09-03 report on コンピューターマネージメント, 13.09% from a group prior of 14.09%, a sale; 0.8.3 showed a prior of 6.70% and a 6.4-point gain. 375 of 400 sampled joint filings since 2024 had this.
+- **Joint 5% filings now use the group totals.** `ownership_pct`, `prior_ownership_pct`, `ownership_change`, and `shares_held` now come from the group-total row, selected by XBRL context. On single-filer reports (no total row) they come from the lead filer's row. A blank total stays blank. Per-party figures are unchanged on `joint_holders`. Example: 光通信's 2026-09-03 report on コンピューターマネージメント, 13.09% from a group prior of 14.09%, a sale; 0.8.3 showed a prior of 6.70% and a 6.4-point gain. 375 of 400 sampled joint filings since 2024 had this.
 - **Second partner axis recognised.** `JointHolder<N>Member` now marks a joint filing and feeds `joint_holders`, alongside `FilerLargeVolumeHolder<N>Member`. Example: 三菱商事 with two UCC companies on ユニカフェ, group 60.04%; 0.8.3 saw one holder at 9.50%.
 - `important_proposal` is read across all parties on a joint filing; `purpose` is the lead filer's by label, not by position.
 - A thousands separator in a per-share field no longer aborts the securities parse (new `parse_decimal`).

@@ -249,7 +249,7 @@ def _is_total_context(ctx: str) -> bool:
 
 
 def _group_value(csv_files: list, key: str) -> str | None:
-    """A holding figure at GROUP grain.
+    """A holding figure for the whole group.
 
     Tier 1: the un-dimensioned (total) row. Tier 2: the primary holder's own
     row — the only row a single-filer filing carries. Tier 3: positional
@@ -271,7 +271,7 @@ def _group_value(csv_files: list, key: str) -> str | None:
 
 
 def _primary_holder_value(csv_files: list, key: str) -> str | None:
-    """A per-holder field at PRIMARY-FILER grain: the Holder1 row by context,
+    """A per-holder field, taken from the primary filer: the Holder1 row by context,
     else positional first-match for legacy un-axised filings."""
     element_id = ELEMENT_MAP[key]
     v = _first_value(csv_files, element_id, lambda c: c.endswith(_PRIMARY_SUFFIX))
@@ -279,7 +279,7 @@ def _primary_holder_value(csv_files: list, key: str) -> str | None:
 
 
 def _any_holder_value(csv_files: list, key: str) -> str | None:
-    """A per-holder intent field read at GROUP grain: the first co-reporter
+    """A per-holder intent field read across the whole group: the first co-reporter
     that states something wins; if every holder is blank, the first row's
     blank marker is returned as filed (never invented)."""
     element_id = ELEMENT_MAP[key]
@@ -447,7 +447,7 @@ def parse_large_holding(document=None, *, csv_files=None, doc_id=None, doc_type_
         ticker_digits = target_ticker_raw.strip()[:4]
         target_ticker = f"{ticker_digits}.T"
 
-    # Holding figures at GROUP grain: explicit total-context selection (0.8.4).
+    # Holding figures for the whole group: explicit total-context selection (0.8.4).
     # On a joint filing these are the 合計 row; on a single-filer filing the
     # primary holder's row. Per-holder figures stay on joint_holders.
     ownership_pct = parse_percentage(_group_value(csv_files, 'ownership_pct'))

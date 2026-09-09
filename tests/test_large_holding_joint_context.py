@@ -71,7 +71,7 @@ class TestRealFilings:
         assert [h.holder_number for h in r.joint_holders] == [1, 2, 3]
 
 
-class TestGroupGrainSelection:
+class TestGroupTotalSelection:
     def test_total_row_wins_regardless_of_document_order(self):
         """The total is selected by context shape, not by being last in the file."""
         r = _parse([

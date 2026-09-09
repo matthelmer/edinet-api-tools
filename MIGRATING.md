@@ -12,7 +12,7 @@ Patch release, no removals from the parsed-report dataclasses. Four things a
 caller can observe; each is a defect fixed rather than a redesign, and the
 [CHANGELOG](CHANGELOG.md) carries the reasoning.
 
-- **Joint 5%+ filings read at group grain.** `ownership_pct`,
+- **Joint 5%+ filings now use the group totals.** `ownership_pct`,
   `prior_ownership_pct`, `ownership_change`, and `shares_held` on a joint
   `LargeHoldingReport` are the group total (the un-dimensioned row). Before
   0.8.4 the prior was holder 1's own figure. If you stored these, re-parse
