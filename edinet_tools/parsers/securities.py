@@ -12,7 +12,7 @@ PROCESSING PHILOSOPHY: Store raw XBRL values faithfully. No interpretation.
 from dataclasses import dataclass, field
 from decimal import Decimal
 from datetime import date
-from typing import Any, Optional
+
 
 from .base import ParsedReport
 from .extraction import (

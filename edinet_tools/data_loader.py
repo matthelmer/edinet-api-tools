@@ -11,7 +11,7 @@ import os
 import urllib.request
 import urllib.error
 import http.client
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import logging
 from datetime import datetime
 import tempfile

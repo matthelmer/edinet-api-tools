@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from datetime import date
-from typing import Any
+
 
 from .base import ParsedReport
 from .extraction import (
