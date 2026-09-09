@@ -6,17 +6,17 @@
 
 - **Joint 5% filings read at group grain.** `ownership_pct`, `prior_ownership_pct`, `ownership_change`, and `shares_held` now come from the group-total row, selected by XBRL context. On single-filer reports (no total row) they come from the lead filer's row. A blank total stays blank. Per-party figures are unchanged on `joint_holders`. Example: 光通信's 2026-09-03 report on コンピューターマネージメント, 13.09% from a group prior of 14.09%, a sale; 0.8.3 showed a prior of 6.70% and a 6.4-point gain. 375 of 400 sampled joint filings since 2024 had this.
 - **Second partner axis recognised.** `JointHolder<N>Member` now marks a joint filing and feeds `joint_holders`, alongside `FilerLargeVolumeHolder<N>Member`. Example: 三菱商事 with two UCC companies on ユニカフェ, group 60.04%; 0.8.3 saw one holder at 9.50%.
-- **`important_proposal` is read across all parties**; the first stated act wins, blank markers returned as filed. `purpose` is the lead filer's, by label rather than by position.
-- **Per-share fields no longer crash on a thousands separator.** Five `Decimal()` calls in the securities parser go through the new `parse_decimal`, which returns None for anything unparseable.
-- **`Entity.documents()` and `get_documents_for_date_range()` raise on a rejected key** (`AuthenticationError`) and on a window where every day failed (`APIError`), instead of returning `[]`. One failed day is still tolerated.
-- **The API key is resolved per request**: argument, then `configure()`, then the environment. With no key, the fetchers raise `AuthenticationError` before contacting EDINET instead of sending `None`. `config.EDINET_API_KEY` remains as an import-time snapshot.
-- **`DOCUMENT_TYPES` and the `filter_documents` gate derive from `doc_types`.** The old copy in `config` had 39 of 42 codes and two wrong names.
-- **Code-list download fixed.** `download_edinet_codes` fetches `Edinetcode.zip` from `disclosure2dl.edinet-fsa.go.jp`, unpacks the single CSV, and writes it atomically; anything else is refused and the old file kept. `EDINET_CSV_URL` removed; `EDINET_CODES_ZIP_URL` added; `EDINET_CODES_URL` now points at the EDINET site.
+- `important_proposal` is read across all parties on a joint filing; `purpose` is the lead filer's by label, not by position.
+- A thousands separator in a per-share field no longer aborts the securities parse (new `parse_decimal`).
+- `Entity.documents()` and `get_documents_for_date_range()` raise `AuthenticationError` on a rejected key, and `APIError` when every day in the window failed, instead of returning `[]`.
+- The API key is resolved per request (argument, `configure()`, environment); with no key the fetchers raise `AuthenticationError` before contacting EDINET instead of sending `None`.
+- `DOCUMENT_TYPES` and the `filter_documents` gate derive from `doc_types`; the old copy had 39 of 42 codes, so 290, 310 and 330 were being dropped.
+- `download_edinet_codes` fetches `Edinetcode.zip` from `disclosure2dl.edinet-fsa.go.jp` (the old CSV path serves HTML) and writes atomically. `EDINET_CSV_URL` removed; `EDINET_CODES_ZIP_URL` added.
 - No root-logger warning on import; API key masked in raised `HTTPError` URLs; `AuthenticationError` points at the current key page.
 
 ### Changed
 
-- **`JointHolder.holder_number` is a dense 1, 2, 3, ... on every filing** (lead filer first, then each axis in order), no longer the XBRL axis index. `joint_holder_count` always matches `is_joint_filing`.
+- `JointHolder.holder_number` is a dense 1, 2, 3, ... on every filing (lead filer first, then each axis in order), no longer the XBRL axis index; `joint_holder_count` always matches `is_joint_filing`.
 - New helper: `edinet_tools.parsers.extraction.parse_decimal`.
 
 ## v0.8.3 — 2026-09-03
