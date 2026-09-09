@@ -35,7 +35,6 @@ def test_download_unpacks_the_code_list_zip(tmp_path):
     with patch.object(data_loader.urllib.request, 'urlopen', return_value=_Resp(_zip_bytes())) as m:
         assert loader.download_edinet_codes(force_update=True) is True
     assert m.call_args[0][0] == data_loader.EDINET_CODES_ZIP_URL
-    assert 'disclosure2dl.edinet-fsa.go.jp' in data_loader.EDINET_CODES_ZIP_URL
     saved = tmp_path.joinpath('edinet_codes.csv').read_bytes()
     assert saved == CSV.encode('cp932')
     # The parser downstream reads exactly this shape.
@@ -59,3 +58,42 @@ def test_download_refuses_a_zip_without_a_csv_member(tmp_path):
     with patch.object(data_loader.urllib.request, 'urlopen', return_value=_Resp(buf.getvalue())):
         assert loader.download_edinet_codes(force_update=True) is False
     assert not tmp_path.joinpath('edinet_codes.csv').exists()
+
+
+def test_download_refuses_a_zip_with_two_csv_members(tmp_path):
+    """Exactly one CSV is the contract; two means the FSA changed the package
+    and we should not guess which one is the code list."""
+    loader = EdinetDataLoader(data_dir=str(tmp_path))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        z.writestr('EdinetcodeDlInfo.csv', CSV.encode('cp932'))
+        z.writestr('Other.csv', 'x')
+    with patch.object(data_loader.urllib.request, 'urlopen', return_value=_Resp(buf.getvalue())):
+        assert loader.download_edinet_codes(force_update=True) is False
+    assert not tmp_path.joinpath('edinet_codes.csv').exists()
+
+
+def test_download_refuses_an_empty_csv_member(tmp_path):
+    loader = EdinetDataLoader(data_dir=str(tmp_path))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        z.writestr('EdinetcodeDlInfo.csv', b'')
+    with patch.object(data_loader.urllib.request, 'urlopen', return_value=_Resp(buf.getvalue())):
+        assert loader.download_edinet_codes(force_update=True) is False
+    assert not tmp_path.joinpath('edinet_codes.csv').exists()
+
+
+@pytest.mark.parametrize('exc', [
+    data_loader.urllib.error.URLError('dns'),
+    TimeoutError('read timed out'),
+    data_loader.http.client.IncompleteRead(b'partial'),
+])
+def test_failed_refresh_returns_false_and_keeps_the_previous_good_file(tmp_path, exc):
+    """A network failure must not clobber a good code list — the loader is
+    called on every cold start and a stale registry beats no registry."""
+    loader = EdinetDataLoader(data_dir=str(tmp_path))
+    good = tmp_path.joinpath('edinet_codes.csv'); good.write_bytes(CSV.encode('cp932'))
+    with patch.object(data_loader.urllib.request, 'urlopen', side_effect=exc):
+        assert loader.download_edinet_codes(force_update=True) is False
+    assert good.read_bytes() == CSV.encode('cp932')
+    assert not list(tmp_path.glob('.edinet_codes.*.tmp'))

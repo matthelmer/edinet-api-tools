@@ -10,11 +10,11 @@ import io
 import os
 import urllib.request
 import urllib.error
+import http.client
 from typing import Dict, List, Optional, Tuple
 import logging
 from datetime import datetime
 import tempfile
-import shutil
 import zipfile
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,8 @@ class EdinetDataLoader:
         try:
             with urllib.request.urlopen(EDINET_CODES_ZIP_URL, timeout=60) as response:
                 payload = response.read() if response.status == 200 else b''
-        except urllib.error.URLError as e:
+        except (OSError, http.client.HTTPException) as e:
+            # URLError and TimeoutError are OSErrors; IncompleteRead is an HTTPException.
             logger.warning(f"EDINET code-list download failed: {e}")
             payload = b''
 
@@ -88,8 +89,17 @@ class EdinetDataLoader:
             logger.info(f"Save as: {self.edinet_codes_file}")
             return False
 
-        with open(self.edinet_codes_file, 'wb') as f:
-            f.write(csv_bytes)
+        # Write beside the target and swap atomically: a failure mid-write must
+        # never leave a truncated file where a good one was.
+        fd, tmp_path = tempfile.mkstemp(dir=self.data_dir, prefix='.edinet_codes.', suffix='.tmp')
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(csv_bytes)
+            os.replace(tmp_path, self.edinet_codes_file)
+        except OSError:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise
         logger.info(f"Successfully downloaded EDINET codes to {self.edinet_codes_file}")
         return True
 
@@ -104,7 +114,7 @@ class EdinetDataLoader:
             if len(members) != 1:
                 logger.warning(f"EDINET code-list zip has {len(members)} CSV members: {z.namelist()}")
                 return None
-            return z.read(members[0])
+            return z.read(members[0]) or None
     
     def load_translations(self, translation_file: str = None) -> Dict[str, str]:
         """

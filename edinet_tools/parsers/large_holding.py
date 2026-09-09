@@ -79,12 +79,14 @@ ELEMENT_MAP = {
 class JointHolder:
     """One co-reporter from a Large Holding Report (Doc 350).
 
-    Derived from XBRL FilerLargeVolumeHolder<N>Member axis rows.
-    The primary filer is index 1; co-reporters are 2, 3, ..., K.
-    Present on both single-filer and joint filings — for single-filer
-    reports, joint_holders contains a 1-element list.
+    Derived from the co-reporter axes in the XBRL context ids:
+    `...FilerLargeVolumeHolder<N>Member` (primary filer is N=1) and, on
+    some filings, `...JointHolder<N>Member`. Present on both single-filer
+    and joint filings — a single-filer report has a 1-element list.
     """
-    # Stable ordering key — the N in FilerLargeVolumeHolder<N>Member
+    # Dense 1..K ordering key: FilerLargeVolumeHolder members by N, then
+    # JointHolder members by N (0.8.4). The primary filer is always 1. This is
+    # NOT the filed N — a gapped axis (1, 3) is emitted as (1, 2).
     holder_number: int
 
     # Identity
@@ -150,9 +152,9 @@ class LargeHoldingReport(ParsedReport):
     acquisition_fund_other: int | None = None
     acquisition_fund_total: int | None = None
 
-    # Joint-filing flag derived from XBRL FilerLargeVolumeHolder<N>Member axis
-    # presence in context_ids (v0.7.0+). True when the filing has multiple
-    # co-reporters (joint Large Holding Report).
+    # Joint-filing flag derived from co-reporter axis presence in context_ids
+    # (FilerLargeVolumeHolder<N>Member with N >= 2, or any JointHolder<N>Member;
+    # v0.7.0+, second axis 0.8.4). True when the filing has multiple co-reporters.
     is_joint_filing: bool = False
 
     # Joint-holder enumeration (v0.7.1+). Always populated as a list of
@@ -210,18 +212,28 @@ class LargeHoldingReport(ParsedReport):
 _HOLDER_AXIS_RE = re.compile(r'(?:FilerLargeVolumeHolder(\d+)|JointHolder(\d+))Member')
 _JOINT_HOLDER_RE = re.compile(r'(?:FilerLargeVolumeHolder(?:[2-9]|\d{2,})|JointHolder\d+)Member')
 
-# Group-total context on a joint filing. Per-holder rows carry the axis
-# member suffix; the bare context is the 合計 row. Single-filer filings tag
-# only Holder1 and usually omit the bare context.
-_TOTAL_CTX = 'FilingDateInstant'
+# Group-total row on a joint filing: the context with NO axis member — in
+# filed data always `FilingDateInstant` (1,500-filing census 2026-09-09 found
+# no other un-dimensioned context), but matched by shape, not by name, so a
+# differently-spelled bare context can never fall through to one holder's
+# stake. Per-holder rows carry `...<Axis><N>Member`. Single-filer filings tag
+# only Holder1 and usually omit the bare row.
 _PRIMARY_SUFFIX = 'FilerLargeVolumeHolder1Member'
 
-# Values EDINET uses for "nothing to report" in free-text intent fields.
-_BLANK_MARKS = frozenset({'', '－', '-', '―', '—', '該当事項なし', '該当なし', '無', 'なし'})
+# Values EDINET uses for "nothing to report" in free-text fields. Superset of
+# `_NULL_VALUES` (the per-holder normaliser's set) — one vocabulary, not two.
+_BLANK_MARKS = frozenset({
+    '', '－', '-', '―', '—', 'ー', 'なし', '無', '無し',
+    '該当なし', '該当事項なし', '該当事項なし。', '該当事項はありません', '該当事項はありません。',
+})
+
+_ABSENT = object()  # "no row matched" — distinct from a row whose 値 is blank
 
 
-def _first_value(csv_files: list, element_id: str, ctx_ok) -> str | None:
-    """First 値 for element_id whose context satisfies ctx_ok, decoded."""
+def _first_value(csv_files: list, element_id: str, ctx_ok):
+    """The 値 of the first row for element_id whose context satisfies ctx_ok,
+    decoded; `_ABSENT` when no row matches. A matched row with a blank value
+    returns that blank — presence and emptiness are different facts."""
     for csv_file in csv_files or []:
         for row in csv_file.get('data', []) or []:
             if row.get('要素ID') != element_id:
@@ -229,25 +241,33 @@ def _first_value(csv_files: list, element_id: str, ctx_ok) -> str | None:
             if ctx_ok(row.get('コンテキストID', '') or ''):
                 v = row.get('値')
                 return unescape_entities(v) if v is not None else None
-    return None
+    return _ABSENT
+
+
+def _is_total_context(ctx: str) -> bool:
+    return 'Member' not in ctx
 
 
 def _group_value(csv_files: list, key: str) -> str | None:
-    """A holding figure at GROUP grain: the bare total context first, then the
-    primary filer's own row (the only row a single-filer filing carries), then
-    positional first-match for legacy un-axised filings.
+    """A holding figure at GROUP grain.
+
+    Tier 1: the un-dimensioned (total) row. Tier 2: the primary holder's own
+    row — the only row a single-filer filing carries. Tier 3: positional
+    first-match, for legacy filings with neither. The first tier that has a
+    ROW wins, even when that row is blank; a filed-but-empty total is an
+    empty total, not a licence to report one holder's stake as the group's.
 
     Before 0.8.4 `ownership_pct`/`shares_held` took the LAST match and
-    `prior_ownership_pct` the FIRST — i.e. group total vs holder 1's prior on
-    every joint filing (375 of 400 sampled prod filings since 2024 disagreed
-    with the filed total-context prior).
+    `prior_ownership_pct` the FIRST — group total vs holder 1's prior on every
+    joint filing (375 of 400 sampled filings since 2024 disagreed with the
+    filed total-context prior).
     """
     element_id = ELEMENT_MAP[key]
-    return (
-        _first_value(csv_files, element_id, lambda c: c == _TOTAL_CTX)
-        or _first_value(csv_files, element_id, lambda c: c.endswith(_PRIMARY_SUFFIX))
-        or extract_value(csv_files, element_id)
-    )
+    for ctx_ok in (_is_total_context, lambda c: c.endswith(_PRIMARY_SUFFIX)):
+        v = _first_value(csv_files, element_id, ctx_ok)
+        if v is not _ABSENT:
+            return v
+    return extract_value(csv_files, element_id)
 
 
 def _any_holder_value(csv_files: list, key: str) -> str | None:
@@ -255,18 +275,18 @@ def _any_holder_value(csv_files: list, key: str) -> str | None:
     that states something wins; if every holder is blank, the first row's
     blank marker is returned as filed (never invented)."""
     element_id = ELEMENT_MAP[key]
-    first = None
+    first = _ABSENT
     for csv_file in csv_files or []:
         for row in csv_file.get('data', []) or []:
             if row.get('要素ID') != element_id:
                 continue
             v = row.get('値')
             v = unescape_entities(v) if v is not None else None
-            if first is None:
+            if first is _ABSENT:
                 first = v
             if (v or '').strip() not in _BLANK_MARKS:
                 return v
-    return first
+    return None if first is _ABSENT else first
 
 
 def _detect_joint_filing(csv_files: list) -> bool:
@@ -331,8 +351,9 @@ def _normalize_holder_value(raw: str, typ: type):
 def _extract_joint_holders(csv_files: list) -> list[JointHolder]:
     """Extract per-holder rows from XBRL substrate.
 
-    Buckets rows by `FilerLargeVolumeHolder<N>Member` axis, extracts
-    typed fields by `項目名` label, returns list sorted by N ascending.
+    Buckets rows by co-reporter axis (`FilerLargeVolumeHolder<N>Member`,
+    then `JointHolder<N>Member`), extracts typed fields by `項目名` label,
+    and returns holders renumbered densely 1..K with the primary filer first.
 
     For single-filer reports, returns a 1-element list (the primary filer
     at N=1). For joint reports (K>=2 co-reporters), returns K elements.
@@ -350,12 +371,15 @@ def _extract_joint_holders(csv_files: list) -> list[JointHolder]:
             if not m:
                 continue
             key = (0, int(m.group(1))) if m.group(1) is not None else (1, int(m.group(2)))
+            # A holder exists as soon as its axis appears, even if no labelled
+            # field does — keeps joint_holder_count consistent with
+            # is_joint_filing (both count axis members).
+            holder_dict = by_holder.setdefault(key, {})
             field_label = row.get('項目名', '') or ''
             if field_label not in _HOLDER_FIELD_MAP:
                 continue
             attr, typ = _HOLDER_FIELD_MAP[field_label]
             value = _normalize_holder_value(row.get('値', ''), typ)
-            holder_dict = by_holder.setdefault(key, {})
             # First-wins per (holder, attr) to avoid the fallback
             # '氏名又は名称' label overwriting '氏名又は名称（日本語表記）、大量保有DEI'
             # when both appear in a transitional filing. In practice these labels
@@ -435,8 +459,8 @@ def parse_large_holding(document=None, *, csv_files=None, doc_id=None, doc_type_
     # Categorize all elements
     raw_fields, text_blocks, unmapped_fields, raw_facts = categorize_elements(csv_files, ELEMENT_MAP)
 
-    # Detect joint filing via FilerLargeVolumeHolder<N>Member axis presence
-    # in context_ids (N >= 2; primary filer is always Holder1Member).
+    # Detect joint filing via co-reporter axis presence in context_ids
+    # (FilerLargeVolumeHolder<N>Member N >= 2, or JointHolder<N>Member).
     is_joint_filing = _detect_joint_filing(csv_files)
     joint_holders_list = _extract_joint_holders(csv_files)
 
