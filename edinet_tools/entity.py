@@ -12,6 +12,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from .entity_classifier import EntityClassifier
+from .exceptions import APIError, AuthenticationError
 
 
 # Module-level cache for classifier instance
@@ -152,19 +153,28 @@ class Entity:
 
         # Collect filings from each day (JST so we don't miss today's filings)
         all_filings = []
+        failures = []
         today = today_jst()
         for i in range(days):
             check_date = today - timedelta(days=i)
             try:
                 filings = client.get_documents_by_date(check_date)
                 all_filings.extend(filings)
-            except (AttributeError, TypeError) as e:
+            except AuthenticationError:
+                # A rejected key is not a quiet day; every further date would
+                # fail the same way. Never return [] for it (0.8.4).
+                raise
+            except (AttributeError, TypeError):
                 # Programming errors should not be silently swallowed
                 raise
             except Exception as e:
-                # Log API/network errors but continue with other dates
-                logger.debug(f"Failed to fetch documents for {check_date}: {e}")
+                # Transient per-day failure: tolerate, but remember it.
+                logger.warning(f"Failed to fetch documents for {check_date}: {e}")
+                failures.append((check_date, e))
                 continue
+        if failures and len(failures) == days:
+            first_date, first_err = failures[0]
+            raise APIError(f"Every one of {days} days failed; first: {first_date}: {first_err}")
 
         # Filter by this entity's EDINET code
         my_filings = [

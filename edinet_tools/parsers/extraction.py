@@ -156,6 +156,21 @@ def parse_percentage(value: Any) -> Optional[Decimal]:
         return None
 
 
+def parse_decimal(value) -> Decimal | None:
+    """Decimal from a coerced numeric string; None for null markers and for
+    anything Decimal() rejects (a thousands separator that survived
+    coercion, a stray unit). Honest None over a parse that aborts the report."""
+    if value is None:
+        return None
+    s = coerce_numeric_value(str(value))
+    if not s:
+        return None
+    try:
+        return Decimal(s)
+    except ArithmeticError:
+        return None
+
+
 def parse_int(value: Any) -> Optional[int]:
     """
     Parse integer, handling Japanese formatting.

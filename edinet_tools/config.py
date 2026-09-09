@@ -1,57 +1,35 @@
 # config.py
 import os
-import logging
 
 # edinet-tools reads EDINET_API_KEY from the process environment only. It
 # does not load .env files itself — a library shouldn't mutate process env
 # as an import side effect. If you keep your key in a .env file, load it in
 # YOUR application before importing edinet_tools (e.g. via `python-dotenv`:
 # `from dotenv import load_dotenv; load_dotenv()`).
+#
+# The key is resolved when a request is built, never at import: a key set
+# after `import edinet_tools` (notebooks, load_dotenv()-after-import) must
+# still be used, and `configure(api_key=...)` must reach the low-level
+# fetchers. Nothing here logs — a missing key surfaces as AuthenticationError
+# at the point of use, and offline paths (entity lookup, parsing) need no key.
+
+
+def api_key(override: str | None = None) -> str | None:
+    """The EDINET API key to send: explicit override, then `configure()`,
+    then the EDINET_API_KEY environment variable, else None."""
+    if override:
+        return override
+    from ._client import _configured_api_key  # lazy: _client imports api imports config
+    return _configured_api_key or os.environ.get('EDINET_API_KEY')
+
+
+# Kept for callers that read it; DO NOT use as a request default — it is a
+# snapshot at import time. See api_key().
 EDINET_API_KEY = os.environ.get('EDINET_API_KEY')
 
-if not EDINET_API_KEY:
-    logging.warning("EDINET_API_KEY not set in the environment.")
+# One registry of document types: doc_types._DOC_TYPES. This used to be a
+# second hand-maintained table that drifted (39 vs 42 codes; 290/310/330
+# missing; 370/380 mislabelled) and gated filter_documents (2026-09-09).
+from .doc_types import _DOC_TYPES as _REGISTRY
 
-# Complete EDINET document types mapping
-# Based on official EDINET documentation and API specifications
-SUPPORTED_DOC_TYPES = {
-    "010": "Securities Notification",
-    "020": "Amendment Notification (Securities Notification)",
-    "030": "Securities Registration Statement",
-    "040": "Amended Securities Registration Statement",
-    "050": "Withdrawal Request for Registration",
-    "060": "Issuance Registration Notification",
-    "070": "Amendment Notification (Issuance Registration Notification)",
-    "080": "Issuance Registration Statement",
-    "090": "Amended Issuance Registration Statement",
-    "100": "Supplementary Issuance Registration Document",
-    "110": "Issuance Registration Withdrawal Statement",
-    "120": "Securities Report",
-    "130": "Securities Report (Amended)",
-    "135": "Confirmation Document",
-    "136": "Amended Confirmation Document",
-    "140": "Quarterly Report",
-    "150": "Quarterly Report (Amended)",
-    "160": "Semi-Annual Report",
-    "170": "Semi-Annual Report (Amended)",
-    "180": "Extraordinary Report",
-    "190": "Amended Extraordinary Report",
-    "200": "Parent Company Status Report",
-    "210": "Amended Parent Company Status Report",
-    "220": "Treasury Stock Purchase Status Report",
-    "230": "Amended Treasury Stock Purchase Status Report",
-    "235": "Internal Control Report",
-    "236": "Amended Internal Control Report",
-    "240": "Tender Offer Registration",
-    "250": "Amended Tender Offer Registration Statement",
-    "260": "Tender Offer Withdrawal",
-    "270": "Tender Offer Report",
-    "280": "Amended Tender Offer Report",
-    "300": "Amended Statement of Opinion Report",
-    "320": "Amended Response to Questions Report",
-    "340": "Amended Application for Exemption from Separate Purchase Prohibition",
-    "350": "Large Holding Report",
-    "360": "Amended Large Shareholding Report",
-    "370": "Reference Date Notification",
-    "380": "Change Notification",
-}
+SUPPORTED_DOC_TYPES: dict[str, str] = {code: dt.name_en for code, dt in _REGISTRY.items()}

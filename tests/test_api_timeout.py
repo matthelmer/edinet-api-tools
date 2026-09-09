@@ -17,7 +17,7 @@ class TestApiTimeoutAndBackoff(unittest.TestCase):
         return mock
 
     @patch('edinet_tools.api.urllib.request.urlopen')
-    @patch('edinet_tools.api.EDINET_API_KEY', 'test-key')
+    @patch.dict('os.environ', {'EDINET_API_KEY': 'test-key'})
     def test_fetch_documents_list_passes_timeout(self, mock_urlopen):
         mock_urlopen.return_value = self._make_success_response()
         fetch_documents_list('2024-01-01', timeout=30)
@@ -25,7 +25,7 @@ class TestApiTimeoutAndBackoff(unittest.TestCase):
         self.assertEqual(kwargs['timeout'], 30)
 
     @patch('edinet_tools.api.urllib.request.urlopen')
-    @patch('edinet_tools.api.EDINET_API_KEY', 'test-key')
+    @patch.dict('os.environ', {'EDINET_API_KEY': 'test-key'})
     def test_fetch_document_passes_timeout(self, mock_urlopen):
         mock_urlopen.return_value = self._make_success_response(content=b'zip')
         fetch_document('S100ABC')
@@ -34,7 +34,7 @@ class TestApiTimeoutAndBackoff(unittest.TestCase):
 
     @patch('edinet_tools.api.time.sleep')
     @patch('edinet_tools.api.urllib.request.urlopen')
-    @patch('edinet_tools.api.EDINET_API_KEY', 'test-key')
+    @patch.dict('os.environ', {'EDINET_API_KEY': 'test-key'})
     def test_exponential_backoff_on_retry(self, mock_urlopen, mock_sleep):
         mock_urlopen.side_effect = [
             urllib.error.URLError('timeout'),
