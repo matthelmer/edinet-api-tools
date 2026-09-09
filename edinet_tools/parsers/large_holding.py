@@ -201,22 +201,86 @@ class LargeHoldingReport(ParsedReport):
         return f"LargeHoldingReport(filer='{filer}', target='{target}', ownership={pct})"
 
 
-_JOINT_HOLDER_RE = re.compile(r'FilerLargeVolumeHolder([2-9]|\d{2,})Member')
+# Co-reporter axes. Two forms occur in filed Doc 350 XBRL:
+#   ...FilerLargeVolumeHolder<N>Member  — primary filer is 1, co-reporters 2..K
+#   ...JointHolder<N>Member             — a second axis some filers use for
+#                                          共同保有者 (e.g. S100SKDY: 三菱商事 as
+#                                          Holder1 + UCC entities as JointHolder1/2)
+# Either axis beyond the primary filer marks a joint filing.
+_HOLDER_AXIS_RE = re.compile(r'(?:FilerLargeVolumeHolder(\d+)|JointHolder(\d+))Member')
+_JOINT_HOLDER_RE = re.compile(r'(?:FilerLargeVolumeHolder(?:[2-9]|\d{2,})|JointHolder\d+)Member')
+
+# Group-total context on a joint filing. Per-holder rows carry the axis
+# member suffix; the bare context is the 合計 row. Single-filer filings tag
+# only Holder1 and usually omit the bare context.
+_TOTAL_CTX = 'FilingDateInstant'
+_PRIMARY_SUFFIX = 'FilerLargeVolumeHolder1Member'
+
+# Values EDINET uses for "nothing to report" in free-text intent fields.
+_BLANK_MARKS = frozenset({'', '－', '-', '―', '—', '該当事項なし', '該当なし', '無', 'なし'})
+
+
+def _first_value(csv_files: list, element_id: str, ctx_ok) -> str | None:
+    """First 値 for element_id whose context satisfies ctx_ok, decoded."""
+    for csv_file in csv_files or []:
+        for row in csv_file.get('data', []) or []:
+            if row.get('要素ID') != element_id:
+                continue
+            if ctx_ok(row.get('コンテキストID', '') or ''):
+                v = row.get('値')
+                return unescape_entities(v) if v is not None else None
+    return None
+
+
+def _group_value(csv_files: list, key: str) -> str | None:
+    """A holding figure at GROUP grain: the bare total context first, then the
+    primary filer's own row (the only row a single-filer filing carries), then
+    positional first-match for legacy un-axised filings.
+
+    Before 0.8.4 `ownership_pct`/`shares_held` took the LAST match and
+    `prior_ownership_pct` the FIRST — i.e. group total vs holder 1's prior on
+    every joint filing (375 of 400 sampled prod filings since 2024 disagreed
+    with the filed total-context prior).
+    """
+    element_id = ELEMENT_MAP[key]
+    return (
+        _first_value(csv_files, element_id, lambda c: c == _TOTAL_CTX)
+        or _first_value(csv_files, element_id, lambda c: c.endswith(_PRIMARY_SUFFIX))
+        or extract_value(csv_files, element_id)
+    )
+
+
+def _any_holder_value(csv_files: list, key: str) -> str | None:
+    """A per-holder intent field read at GROUP grain: the first co-reporter
+    that states something wins; if every holder is blank, the first row's
+    blank marker is returned as filed (never invented)."""
+    element_id = ELEMENT_MAP[key]
+    first = None
+    for csv_file in csv_files or []:
+        for row in csv_file.get('data', []) or []:
+            if row.get('要素ID') != element_id:
+                continue
+            v = row.get('値')
+            v = unescape_entities(v) if v is not None else None
+            if first is None:
+                first = v
+            if (v or '').strip() not in _BLANK_MARKS:
+                return v
+    return first
 
 
 def _detect_joint_filing(csv_files: list) -> bool:
-    """Return True when context_ids carry a 2nd-or-higher co-reporter axis.
+    """Return True when context_ids carry a co-reporter axis beyond the primary.
 
     Real EDINET Doc 350 filings carry per-co-reporter axis members like
     `FilingDateInstant_jplvh030000-lvh_E23615-000FilerLargeVolumeHolder1Member`
     for the primary filer and `...FilerLargeVolumeHolder2Member`,
-    `...3Member`, etc. for additional co-reporters in joint filings.
-    Presence of FilerLargeVolumeHolder<N>Member where N >= 2 = joint filing;
-    only 1Member present = single filer.
+    `...3Member`, etc. — or `...JointHolder<N>Member` — for additional
+    co-reporters. Only Holder1Member present = single filer.
 
     (Note: the form-schema extension namespace prefix `jplvh030000-lvh_E#####-000`
-    varies per filer; the load-bearing discriminator is the `FilerLargeVolumeHolder`
-    member-name pattern, not the axis-namespace prefix.)
+    varies per filer; the load-bearing discriminator is the member-name
+    pattern, not the axis-namespace prefix.)
     """
     for csv_file in csv_files or []:
         for row in csv_file.get('data', []) or []:
@@ -275,32 +339,31 @@ def _extract_joint_holders(csv_files: list) -> list[JointHolder]:
     For corrupt or partial XBRL, returns what's parseable; missing fields
     are None.
     """
-    by_holder: dict[int, dict] = {}
+    # Bucket key: (axis, N). Axis 0 = FilerLargeVolumeHolder (primary is N=1),
+    # axis 1 = JointHolder. Holders are emitted in that order and renumbered
+    # 1..K so holder_number stays a dense ordering key across both axes.
+    by_holder: dict[tuple[int, int], dict] = {}
     for csv_file in csv_files or []:
         for row in csv_file.get('data', []) or []:
             ctx = row.get('コンテキストID', '') or ''
-            n = None
-            if 'FilerLargeVolumeHolder1Member' in ctx:
-                n = 1
-            else:
-                m = _JOINT_HOLDER_RE.search(ctx)
-                if m:
-                    n = int(m.group(1))
-            if n is None:
+            m = _HOLDER_AXIS_RE.search(ctx)
+            if not m:
                 continue
+            key = (0, int(m.group(1))) if m.group(1) is not None else (1, int(m.group(2)))
             field_label = row.get('項目名', '') or ''
             if field_label not in _HOLDER_FIELD_MAP:
                 continue
             attr, typ = _HOLDER_FIELD_MAP[field_label]
             value = _normalize_holder_value(row.get('値', ''), typ)
-            holder_dict = by_holder.setdefault(n, {'holder_number': n})
-            # First-wins per (holder_number, attr) to avoid the fallback
+            holder_dict = by_holder.setdefault(key, {})
+            # First-wins per (holder, attr) to avoid the fallback
             # '氏名又は名称' label overwriting '氏名又は名称（日本語表記）、大量保有DEI'
             # when both appear in a transitional filing. In practice these labels
             # are mutually exclusive by filing vintage; the guard is defensive.
             if attr not in holder_dict or holder_dict[attr] is None:
                 holder_dict[attr] = value
-    return [JointHolder(**by_holder[n]) for n in sorted(by_holder.keys())]
+    return [JointHolder(holder_number=i, **by_holder[k])
+            for i, k in enumerate(sorted(by_holder.keys()), start=1)]
 
 
 def parse_large_holding(document=None, *, csv_files=None, doc_id=None, doc_type_code=None) -> LargeHoldingReport:
@@ -352,9 +415,11 @@ def parse_large_holding(document=None, *, csv_files=None, doc_id=None, doc_type_
         ticker_digits = target_ticker_raw.strip()[:4]
         target_ticker = f"{ticker_digits}.T"
 
-    # Ownership percentages (get last occurrence for joint filings)
-    ownership_pct = parse_percentage(get('ownership_pct', last=True))
-    prior_ownership_pct = parse_percentage(get('prior_ownership_pct'))
+    # Holding figures at GROUP grain: explicit total-context selection (0.8.4).
+    # On a joint filing these are the 合計 row; on a single-filer filing the
+    # primary holder's row. Per-holder figures stay on joint_holders.
+    ownership_pct = parse_percentage(_group_value(csv_files, 'ownership_pct'))
+    prior_ownership_pct = parse_percentage(_group_value(csv_files, 'prior_ownership_pct'))
 
     # Calculate ownership change
     ownership_change = None
@@ -402,15 +467,18 @@ def parse_large_holding(document=None, *, csv_files=None, doc_id=None, doc_type_
         listed_or_otc=get('listed_or_otc'),
 
         # Ownership
-        shares_held=parse_int(get('shares_held', last=True)),
+        shares_held=parse_int(_group_value(csv_files, 'shares_held')),
         ownership_pct=ownership_pct,
         prior_ownership_pct=prior_ownership_pct,
         ownership_change=ownership_change,
         shares_outstanding=parse_int(get('shares_outstanding')),
 
-        # Purpose & Intent
+        # Purpose & Intent. `purpose` is per-holder with no group row; the
+        # primary filer's is reported here (co-reporters' on joint_holders).
+        # `important_proposal` is read across co-reporters: the first holder
+        # that states an act wins (0.8.4; ~2% of joint filings differ by holder).
         purpose=get('purpose'),
-        important_proposal=get('important_proposal'),
+        important_proposal=_any_holder_value(csv_files, 'important_proposal'),
 
         # Dates
         filing_date=filing_date,

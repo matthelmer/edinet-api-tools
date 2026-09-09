@@ -6,6 +6,7 @@ and integrates with corporate entity translations.
 """
 
 import csv
+import io
 import os
 import urllib.request
 import urllib.error
@@ -14,13 +15,17 @@ import logging
 from datetime import datetime
 import tempfile
 import shutil
+import zipfile
 
 logger = logging.getLogger(__name__)
 
-# Official EDINET codes download URL
-EDINET_CODES_URL = "https://disclosure2.edinet-fsa.go.jp/weee0020.aspx"
-# Alternative direct CSV URL (if available)
-EDINET_CSV_URL = "https://disclosure2.edinet-fsa.go.jp/weee0020/EDINET_Code_List.csv"
+# The FSA serves the EDINET code list as a zip (Edinetcode.zip -> EdinetcodeDlInfo.csv,
+# cp932, one metadata line before the header) from the download host. The old
+# disclosure2.edinet-fsa.go.jp/weee0020/EDINET_Code_List.csv path 302s to an HTML
+# page (probed 2026-09-09); a loader that streamed it wrote HTML into the codes file.
+EDINET_CODES_ZIP_URL = "https://disclosure2dl.edinet-fsa.go.jp/searchdocument/codelist/Edinetcode.zip"
+# Human-facing page for a manual download, when the automatic one fails.
+EDINET_CODES_URL = "https://disclosure2.edinet-fsa.go.jp/"
 
 class EdinetDataLoader:
     """Handles downloading and processing official EDINET company data."""
@@ -67,21 +72,39 @@ class EdinetDataLoader:
         logger.info("Downloading EDINET codes from official website...")
         
         try:
-            # Try direct CSV download first
-            with urllib.request.urlopen(EDINET_CSV_URL, timeout=30) as response:
-                if response.status == 200:
-                    with open(self.edinet_codes_file, 'wb') as f:
-                        shutil.copyfileobj(response, f)
-                    logger.info(f"Successfully downloaded EDINET codes to {self.edinet_codes_file}")
-                    return True
+            with urllib.request.urlopen(EDINET_CODES_ZIP_URL, timeout=60) as response:
+                payload = response.read() if response.status == 200 else b''
         except urllib.error.URLError as e:
-            logger.warning(f"Direct CSV download failed: {e}")
-        
-        # Fallback: Try to parse the main page (this would need HTML parsing)
-        logger.warning("Direct CSV download failed. Manual download may be required.")
-        logger.info(f"Please download the EDINET codes manually from {EDINET_CODES_URL}")
-        logger.info(f"Save as: {self.edinet_codes_file}")
-        return False
+            logger.warning(f"EDINET code-list download failed: {e}")
+            payload = b''
+
+        csv_bytes = self._csv_from_code_list_zip(payload)
+        if csv_bytes is None:
+            # Never write a non-CSV body: an HTML error page saved as
+            # edinet_codes.csv reads as "success" and poisons every lookup.
+            logger.warning("EDINET code-list download did not return the expected zip. "
+                           "Manual download may be required.")
+            logger.info(f"Please download the EDINET codes manually from {EDINET_CODES_URL}")
+            logger.info(f"Save as: {self.edinet_codes_file}")
+            return False
+
+        with open(self.edinet_codes_file, 'wb') as f:
+            f.write(csv_bytes)
+        logger.info(f"Successfully downloaded EDINET codes to {self.edinet_codes_file}")
+        return True
+
+    @staticmethod
+    def _csv_from_code_list_zip(payload: bytes) -> Optional[bytes]:
+        """The single CSV member of the FSA code-list zip, or None when the
+        payload is not a zip or carries no CSV (HTML error page, empty body)."""
+        if not payload or not zipfile.is_zipfile(io.BytesIO(payload)):
+            return None
+        with zipfile.ZipFile(io.BytesIO(payload)) as z:
+            members = [n for n in z.namelist() if n.lower().endswith('.csv')]
+            if len(members) != 1:
+                logger.warning(f"EDINET code-list zip has {len(members)} CSV members: {z.namelist()}")
+                return None
+            return z.read(members[0])
     
     def load_translations(self, translation_file: str = None) -> Dict[str, str]:
         """
