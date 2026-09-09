@@ -6,6 +6,34 @@ or (for the dataclass fields) a `TypeError` on construction — so nothing
 breaks silently. This page is the fix-it checklist; see
 [CHANGELOG.md](CHANGELOG.md) for the full reasoning behind each change.
 
+## 0.8.4 — behaviour changes to know about
+
+Patch release, no removals from the parsed-report dataclasses. Four things a
+caller can observe; each is a defect fixed rather than a redesign, and the
+[CHANGELOG](CHANGELOG.md) carries the reasoning.
+
+- **Joint 5%+ filings read at group grain.** `ownership_pct`,
+  `prior_ownership_pct`, `ownership_change`, and `shares_held` on a joint
+  `LargeHoldingReport` are the group total (the un-dimensioned row). Before
+  0.8.4 the prior was holder 1's own figure. If you stored these, re-parse
+  joint filings; per-holder figures are unchanged on `joint_holders`.
+  `holder_number` is now a dense `1..K` ordering (primary filer first) rather
+  than the filed axis index — a gapped axis `(1, 3)` is emitted as `(1, 2)`.
+- **Convenience paths fail loud.** `Entity.documents()` and
+  `get_documents_for_date_range()` raise `AuthenticationError` on a rejected
+  key and `APIError` when every day in the window failed, instead of
+  returning `[]`. A transient failure on one day is still tolerated.
+- **No key, no request.** `fetch_documents_list` / `fetch_document` raise
+  `AuthenticationError` before contacting EDINET when no key is available
+  (argument, `configure()`, or `EDINET_API_KEY`). Previously the request went
+  out with the literal string `None`. The key is now resolved per call, so
+  setting the environment variable after `import edinet_tools` works.
+- **Code-list download.** `edinet_tools.data_loader.EDINET_CSV_URL` is
+  removed (the FSA path it named now serves HTML); `EDINET_CODES_ZIP_URL`
+  is the address the loader fetches, and `EDINET_CODES_URL` now points at
+  the EDINET site for a manual download. `DOCUMENT_TYPES` has 42 entries
+  (was 39) and its names match `doc_types`.
+
 ## `SecuritiesReport`: ownership-basis field split
 
 `net_assets`, `net_income`, and `prior_net_income` are removed. Each used to
