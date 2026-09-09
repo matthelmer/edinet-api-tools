@@ -32,6 +32,7 @@ RATIO = 'jplvh_cor:HoldingRatioOfShareCertificatesEtc'
 PRIOR = 'jplvh_cor:HoldingRatioOfShareCertificatesEtcPerLastReport'
 SHARES = 'jplvh_cor:TotalNumberOfStocksEtcHeld'
 PROPOSAL = 'jplvh_cor:ActOfMakingImportantProposalEtc'
+PURPOSE = 'jplvh_cor:PurposeOfHolding'
 NAME = 'jplvh_cor:Name'
 
 
@@ -142,3 +143,16 @@ class TestImportantProposalAcrossHolders:
         for blank in ('－', 'ー', '無し', '該当事項なし。', '該当事項はありません。'):
             r = _parse([(PROPOSAL, H1, blank), (PROPOSAL, H2, '増配の提案')])
             assert r.important_proposal == '増配の提案', blank
+
+
+class TestPurposeIsThePrimaryFilers:
+    def test_purpose_comes_from_holder_1_even_when_a_co_reporter_is_listed_first(self):
+        """`purpose` has no group row; it is the primary filer's, chosen by axis
+        context. In 2 of 600 sampled joint filings the co-reporter's purpose row
+        came first in the file (census 2026-09-09)."""
+        r = _parse([(PURPOSE, H2, '政策投資'), (PURPOSE, H1, '純投資')])
+        assert r.purpose == '純投資'
+
+    def test_purpose_falls_back_to_first_match_on_legacy_filings(self):
+        r = _parse([(PURPOSE, 'SomeOtherContext', '純投資')])
+        assert r.purpose == '純投資'

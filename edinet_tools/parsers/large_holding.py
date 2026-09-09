@@ -270,6 +270,14 @@ def _group_value(csv_files: list, key: str) -> str | None:
     return extract_value(csv_files, element_id)
 
 
+def _primary_holder_value(csv_files: list, key: str) -> str | None:
+    """A per-holder field at PRIMARY-FILER grain: the Holder1 row by context,
+    else positional first-match for legacy un-axised filings."""
+    element_id = ELEMENT_MAP[key]
+    v = _first_value(csv_files, element_id, lambda c: c.endswith(_PRIMARY_SUFFIX))
+    return extract_value(csv_files, element_id) if v is _ABSENT else v
+
+
 def _any_holder_value(csv_files: list, key: str) -> str | None:
     """A per-holder intent field read at GROUP grain: the first co-reporter
     that states something wins; if every holder is blank, the first row's
@@ -498,10 +506,12 @@ def parse_large_holding(document=None, *, csv_files=None, doc_id=None, doc_type_
         shares_outstanding=parse_int(get('shares_outstanding')),
 
         # Purpose & Intent. `purpose` is per-holder with no group row; the
-        # primary filer's is reported here (co-reporters' on joint_holders).
+        # PRIMARY filer's is reported here, selected by its axis context rather
+        # than by row order (0.8.4: in 2 of 600 sampled joint filings the first
+        # purpose row was a co-reporter's). Co-reporters' are on joint_holders.
         # `important_proposal` is read across co-reporters: the first holder
-        # that states an act wins (0.8.4; ~2% of joint filings differ by holder).
-        purpose=get('purpose'),
+        # that states an act wins (~2% of joint filings differ by holder).
+        purpose=_primary_holder_value(csv_files, 'purpose'),
         important_proposal=_any_holder_value(csv_files, 'important_proposal'),
 
         # Dates
