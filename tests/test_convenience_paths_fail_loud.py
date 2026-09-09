@@ -37,8 +37,18 @@ class TestEntityDocuments:
 
     def test_every_day_failing_raises_instead_of_empty_list(self):
         t, _ = self._toyota_with(urllib.error.URLError('down'))
-        with pytest.raises(APIError):
+        with pytest.raises(APIError) as ei:
             t.documents(days=3)
+        assert isinstance(ei.value.__cause__, urllib.error.URLError)
+
+    def test_a_window_of_legitimate_empty_days_is_still_an_empty_list(self):
+        """Holidays are not failures: the client returns [] for a healthy
+        zero-result day, and fail-loud must not turn that into an error."""
+        t, c = self._toyota_with(None)
+        c.get_documents_by_date.side_effect = None
+        c.get_documents_by_date.return_value = []
+        assert t.documents(days=3) == []
+        assert c.get_documents_by_date.call_count == 3
 
 
 class TestDateRange:

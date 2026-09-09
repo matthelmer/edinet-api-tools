@@ -32,7 +32,9 @@ caller can observe; each is a defect fixed rather than a redesign, and the
   removed (the FSA path it named now serves HTML); `EDINET_CODES_ZIP_URL`
   is the address the loader fetches, and `EDINET_CODES_URL` now points at
   the EDINET site for a manual download. `DOCUMENT_TYPES` has 42 entries
-  (was 39) and its names match `doc_types`.
+  (was 39) and its English names now match `doc_types` — 21 strings changed
+  (`Large Holding Report` → `Large Shareholding Report`, and so on). Match on
+  the codes, not the names.
 
 ## `SecuritiesReport`: ownership-basis field split
 

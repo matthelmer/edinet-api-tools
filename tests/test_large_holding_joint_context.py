@@ -153,6 +153,13 @@ class TestPurposeIsThePrimaryFilers:
         r = _parse([(PURPOSE, H2, '政策投資'), (PURPOSE, H1, '純投資')])
         assert r.purpose == '純投資'
 
+    def test_purpose_on_a_jointholder_only_filing_is_the_first_holder(self):
+        """Holders on the second axis only: the primary is JointHolder1 by the
+        same ordering joint_holders uses, not whichever row comes first."""
+        r = _parse([(PURPOSE, 'FilingDateInstant_x-000JointHolder2Member', 'partner'),
+                    (PURPOSE, J1, 'primary')])
+        assert r.purpose == 'primary'
+
     def test_purpose_falls_back_to_first_match_on_legacy_filings(self):
         r = _parse([(PURPOSE, 'SomeOtherContext', '純投資')])
         assert r.purpose == '純投資'

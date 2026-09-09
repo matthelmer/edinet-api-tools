@@ -49,6 +49,35 @@ def test_configure_reaches_the_low_level_fetchers():
     assert 'Subscription-Key=configured-key' in _captured_query(api.fetch_document, 'S100ABC')
 
 
+def test_configure_none_falls_back_to_the_environment(monkeypatch):
+    _client.configure(api_key='configured-key')
+    _client.configure(api_key=None)
+    monkeypatch.setenv('EDINET_API_KEY', 'env-key')
+    assert 'Subscription-Key=env-key' in _captured_query(api.fetch_document, 'S100ABC')
+
+
+def test_empty_string_override_is_not_a_key(monkeypatch):
+    monkeypatch.setenv('EDINET_API_KEY', 'env-key')
+    assert 'Subscription-Key=env-key' in _captured_query(api.fetch_document, 'S100ABC', api_key='')
+
+
+def test_http_error_raised_by_fetch_document_carries_no_key(monkeypatch):
+    """End to end: a non-200 response must not leave the key in the raised
+    HTTPError's url or message."""
+    monkeypatch.setenv('EDINET_API_KEY', 'secret-key-123')
+    class Resp:
+        headers = {}
+        def getcode(self): return 500
+        def read(self): return b''
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    with patch.object(api.urllib.request, 'urlopen', return_value=Resp()), patch.object(api.time, 'sleep'):
+        with pytest.raises(urllib.error.HTTPError) as ei:
+            api.fetch_document('S100ABC', max_retries=1)
+    assert 'secret-key-123' not in (ei.value.url or '')
+    assert 'secret-key-123' not in str(ei.value)
+
+
 def test_explicit_override_wins():
     _client.configure(api_key='configured-key')
     assert 'Subscription-Key=explicit' in _captured_query(api.fetch_document, 'S100ABC', api_key='explicit')

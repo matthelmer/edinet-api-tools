@@ -271,11 +271,25 @@ def _group_value(csv_files: list, key: str) -> str | None:
 
 
 def _primary_holder_value(csv_files: list, key: str) -> str | None:
-    """A per-holder field, taken from the primary filer: the Holder1 row by context,
-    else positional first-match for legacy un-axised filings."""
+    """A per-holder field, taken from the primary filer — the lowest
+    (axis, N) holder present, the same ordering `_extract_joint_holders`
+    uses, so a filing whose holders sit only on the JointHolder axis still
+    yields its first holder. Positional first-match only for legacy filings
+    with no axis at all."""
     element_id = ELEMENT_MAP[key]
-    v = _first_value(csv_files, element_id, lambda c: c.endswith(_PRIMARY_SUFFIX))
-    return extract_value(csv_files, element_id) if v is _ABSENT else v
+    best = None
+    for csv_file in csv_files or []:
+        for row in csv_file.get('data', []) or []:
+            if row.get('要素ID') != element_id:
+                continue
+            m = _HOLDER_AXIS_RE.search(row.get('コンテキストID', '') or '')
+            if not m:
+                continue
+            k = (0, int(m.group(1))) if m.group(1) is not None else (1, int(m.group(2)))
+            if best is None or k < best[0]:
+                v = row.get('値')
+                best = (k, unescape_entities(v) if v is not None else None)
+    return extract_value(csv_files, element_id) if best is None else best[1]
 
 
 def _any_holder_value(csv_files: list, key: str) -> str | None:

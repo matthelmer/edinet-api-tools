@@ -174,7 +174,7 @@ class Entity:
                 continue
         if failures and len(failures) == days:
             first_date, first_err = failures[0]
-            raise APIError(f"Every one of {days} days failed; first: {first_date}: {first_err}")
+            raise APIError(f"Every one of {days} days failed; first: {first_date}: {first_err}") from first_err
 
         # Filter by this entity's EDINET code
         my_filings = [

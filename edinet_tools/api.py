@@ -403,7 +403,7 @@ def get_documents_for_date_range(start_date: datetime.date,
 
         except AuthenticationError:
             raise  # a rejected key is not a bad day; every further date would fail the same way
-        except (APIError, urllib.error.URLError, OSError, ValueError) as e:
+        except (APIError, OSError, json.JSONDecodeError) as e:
             # Transient per-day failure: tolerate it, but never let a range where
             # EVERY day failed read as a quiet period (the silent-empty class
             # 0.8.1 closed at the fetcher layer).
@@ -414,6 +414,6 @@ def get_documents_for_date_range(start_date: datetime.date,
 
     if failures and len(failures) == days_attempted:
         first_date, first_err = failures[0]
-        raise APIError(f"Every date in the range failed ({len(failures)} days); first: {first_date}: {first_err}")
+        raise APIError(f"Every date in the range failed ({len(failures)} days); first: {first_date}: {first_err}") from first_err
     logger.info(f"Finished retrieving documents for date range. Total matching documents: {len(matching_docs)}")
     return matching_docs
