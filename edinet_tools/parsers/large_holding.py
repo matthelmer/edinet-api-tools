@@ -223,7 +223,9 @@ _JOINT_HOLDER_RE = re.compile(r'(?:FilerLargeVolumeHolder(?:[2-9]|\d{2,})|JointH
 # `_NULL_VALUES` (the per-holder normaliser's set) — one vocabulary, not two.
 _BLANK_MARKS = frozenset({
     '', '－', '-', '―', '—', 'ー', 'なし', '無', '無し',
-    '該当なし', '該当事項なし', '該当事項なし。', '該当事項はありません', '該当事項はありません。',
+    '該当なし', '該当事項なし', '該当事項なし。', '該当事項無し', '該当事項無し。',
+    '該当事項はありません', '該当事項はありません。', '該当事項はない', '該当事項はない。',
+    '当該事項なし', '当該事項なし。', '当該事項無し', '当該事項無し。',
 })
 
 _ABSENT = object()  # "no row matched" — distinct from a row whose 値 is blank

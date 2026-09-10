@@ -204,3 +204,11 @@ class TestJointFilingWithoutTotalRow:
     def test_joint_without_total_row_and_a_malformed_holder_value_is_none(self):
         r = _parse([(RATIO, H1, 'abc'), (RATIO, H2, '0')])
         assert r.ownership_pct is None
+
+    def test_a_co_reporters_differently_spelled_nothing_does_not_replace_holder_1s_dash(self):
+        """A/B on 4,000 stored filings (2026-09-09): 該当事項無し / 当該事項なし on a
+        co-reporter were read as a stated act over holder 1's `－`. Every spelling of
+        nothing is nothing; the first row's marker is what gets returned."""
+        for blank in ('該当事項無し', '該当事項無し。', '当該事項なし', '当該事項無し', '該当事項はない。'):
+            r = _parse([(PROPOSAL, H1, '－'), (PROPOSAL, H2, blank)])
+            assert r.important_proposal == '－', blank
