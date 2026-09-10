@@ -1,8 +1,7 @@
 """There is one registry of EDINET document types: `doc_types._DOC_TYPES`.
 `config.SUPPORTED_DOC_TYPES` was a second, hand-maintained copy that had
 drifted — 39 entries against 42, missing 290 / 310 / 330 (tender-offer
-opinion, Q&A, exemption) while listing their amendment codes, and mislabelling
-370 / 380. `filter_documents` gated on the stale copy, so a date-range harvest
+opinion, Q&A, exemption) while listing their amendment codes. `filter_documents` gated on the stale copy, so a date-range harvest
 silently dropped three filing types the package ships typed parsers for
 (found 2026-09-09)."""
 from edinet_tools import DOCUMENT_TYPES

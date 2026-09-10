@@ -218,7 +218,6 @@ _JOINT_HOLDER_RE = re.compile(r'(?:FilerLargeVolumeHolder(?:[2-9]|\d{2,})|JointH
 # differently-spelled bare context can never fall through to one holder's
 # stake. Per-holder rows carry `...<Axis><N>Member`. Single-filer filings tag
 # only Holder1 and usually omit the bare row.
-_PRIMARY_SUFFIX = 'FilerLargeVolumeHolder1Member'
 
 # Values EDINET uses for "nothing to report" in free-text fields. Superset of
 # `_NULL_VALUES` (the per-holder normaliser's set) — one vocabulary, not two.
@@ -248,14 +247,29 @@ def _is_total_context(ctx: str) -> bool:
     return 'Member' not in ctx
 
 
+def _holder_keys(csv_files: list) -> set[tuple[int, int]]:
+    """Every (axis, N) co-reporter key present in the filing's context IDs —
+    axis 0 = FilerLargeVolumeHolder, axis 1 = JointHolder, the ordering
+    `_extract_joint_holders` and `_primary_holder_value` share."""
+    keys: set[tuple[int, int]] = set()
+    for csv_file in csv_files or []:
+        for row in csv_file.get('data', []) or []:
+            m = _HOLDER_AXIS_RE.search(row.get('コンテキストID', '') or '')
+            if m:
+                keys.add((0, int(m.group(1))) if m.group(1) is not None else (1, int(m.group(2))))
+    return keys
+
+
 def _group_value(csv_files: list, key: str) -> str | None:
     """A holding figure for the whole group.
 
-    Tier 1: the un-dimensioned (total) row. Tier 2: the primary holder's own
-    row — the only row a single-filer filing carries. Tier 3: positional
-    first-match, for legacy filings with neither. The first tier that has a
-    ROW wins, even when that row is blank; a filed-but-empty total is an
-    empty total, not a licence to report one holder's stake as the group's.
+    Tier 1: the un-dimensioned (total) row. Tier 2, single-filer filings only:
+    the one holder's own row — the only row such a filing carries, on either
+    axis. A joint filing with no total row has filed no group figure, so the
+    result is None rather than one holder's stake. Tier 3: positional
+    first-match, for legacy filings with no axis at all. The first tier that
+    has a ROW wins, even when that row is blank; a filed-but-empty total is
+    an empty total, not a licence to report one holder's stake as the group's.
 
     Before 0.8.4 `ownership_pct`/`shares_held` took the LAST match and
     `prior_ownership_pct` the FIRST — group total vs holder 1's prior on every
@@ -263,8 +277,16 @@ def _group_value(csv_files: list, key: str) -> str | None:
     filed total-context prior).
     """
     element_id = ELEMENT_MAP[key]
-    for ctx_ok in (_is_total_context, lambda c: c.endswith(_PRIMARY_SUFFIX)):
-        v = _first_value(csv_files, element_id, ctx_ok)
+    v = _first_value(csv_files, element_id, _is_total_context)
+    if v is not _ABSENT:
+        return v
+    holders = _holder_keys(csv_files)
+    if len(holders) > 1:
+        return None
+    if holders:
+        (axis, n), = holders
+        suffix = f'FilerLargeVolumeHolder{n}Member' if axis == 0 else f'JointHolder{n}Member'
+        v = _first_value(csv_files, element_id, lambda c: c.endswith(suffix))
         if v is not _ABSENT:
             return v
     return extract_value(csv_files, element_id)

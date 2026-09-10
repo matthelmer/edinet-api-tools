@@ -163,3 +163,24 @@ class TestPurposeIsThePrimaryFilers:
     def test_purpose_falls_back_to_first_match_on_legacy_filings(self):
         r = _parse([(PURPOSE, 'SomeOtherContext', '純投資')])
         assert r.purpose == '純投資'
+
+
+class TestJointFilingWithoutTotalRow:
+    def test_joint_filing_without_total_row_reports_no_group_figure(self):
+        """Two co-reporters and no un-dimensioned row: there is no group total
+        in the filing. Holder 1's own stake is not the group's; honest None."""
+        r = _parse([(RATIO, H1, '0.0600'), (PRIOR, H1, '0.0500'), (SHARES, H1, '600'),
+                    (RATIO, H2, '0.0500'), (PRIOR, H2, '0.0400'), (SHARES, H2, '500')])
+        assert r.is_joint_filing is True
+        assert r.ownership_pct is None
+        assert r.prior_ownership_pct is None
+        assert r.shares_held is None
+        assert r.ownership_change is None
+
+    def test_single_holder_on_the_jointholder_axis_without_total_row_reads_that_holder(self):
+        """One holder, tagged on the second axis only: the only row is the group."""
+        r = _parse([(RATIO, J1, '0.0512'), (PRIOR, J1, '0.0498'), (SHARES, J1, '512')])
+        assert r.joint_holder_count == 1
+        assert r.ownership_pct == Decimal('0.0512')
+        assert r.prior_ownership_pct == Decimal('0.0498')
+        assert r.shares_held == 512

@@ -29,7 +29,7 @@ EDINET_API_KEY = os.environ.get('EDINET_API_KEY')
 
 # One registry of document types: doc_types._DOC_TYPES. This used to be a
 # second hand-maintained table that drifted (39 vs 42 codes; 290/310/330
-# missing; 370/380 mislabelled) and gated filter_documents (2026-09-09).
+# missing) and gated filter_documents (2026-09-09).
 from .doc_types import _DOC_TYPES as _REGISTRY
 
 SUPPORTED_DOC_TYPES: dict[str, str] = {code: dt.name_en for code, dt in _REGISTRY.items()}

@@ -61,7 +61,7 @@ EDINET defines 42 document types spanning corporate disclosure, capital markets 
 | 135, 136 | Confirmation Documents | CEO/CFO attestation (primarily PDF) |
 | 200, 210 | Parent Company Reports | Parent-subsidiary relationships |
 | 350, 360 | Large Shareholding | 5%+ ownership filings — filer, target, ownership percentage |
-| 370, 380 | Shareholding Changes | Position changes for large holders |
+| 370, 380 | Reference Date / Change Notifications | Notifications under the large shareholding rules (the 5% change report itself is filed as 350) |
 | 240, 250 | Tender Offer Registration | Public tender offer filings |
 | 260 | Tender Offer Withdrawal | Withdrawal of tender offers |
 | 270, 280 | Tender Offer Reports | Tender offer completion — outcome, final holdings |

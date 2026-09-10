@@ -30,6 +30,19 @@ def _redact_key(url: str) -> str:
     """The URL with the Subscription-Key value masked — for exceptions and logs."""
     return re.sub(r'(Subscription-Key=)[^&]*', r'\1***', url)
 
+
+def _redact_exception(exc: BaseException) -> None:
+    """Mask the key on an exception urllib raised itself. `HTTPError` carries the
+    request URL (key included) on both `url` and `filename`; `URLError` on
+    `filename` when it has one. In place, so the original traceback survives."""
+    for attr in ('url', 'filename'):
+        value = getattr(exc, attr, None)
+        if isinstance(value, str):
+            try:
+                setattr(exc, attr, _redact_key(value))
+            except AttributeError:
+                pass
+
 # EDINET API v2 lives on api.edinet-fsa.go.jp. The old disclosure.edinet-fsa.go.jp
 # host stopped serving the API at the end of August 2026: it now 301s to
 # disclosure2.edinet-fsa.go.jp, which 302s to an HTML error page, so every
@@ -182,6 +195,7 @@ def fetch_documents_list(date: Union[str, datetime.date],
                 time.sleep(backoff)
             else:
                 logger.error("Max retries reached for fetching documents.")
+                _redact_exception(e)
                 raise # Re-raise the last exception
         except Exception as e:
             logger.error(f"An unexpected error occurred fetching documents for {date_str}: {e}")
@@ -262,6 +276,7 @@ def fetch_document(doc_id: str, type: int = 5, max_retries: int = 3, delay_secon
                 time.sleep(backoff)
             else:
                 logger.error("Max retries reached for fetching document.")
+                _redact_exception(e)
                 raise
         except Exception as e:
             logger.error(f"An unexpected error occurred fetching document {doc_id}: {e}")

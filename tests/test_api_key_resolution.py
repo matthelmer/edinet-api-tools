@@ -102,3 +102,24 @@ def test_import_does_not_write_to_the_root_logger(caplog):
 def test_error_messages_do_not_carry_the_key():
     assert api._redact_key('https://h/x?type=5&Subscription-Key=secret123') == 'https://h/x?type=5&Subscription-Key=***'
     assert api._redact_key('https://h/x?type=5') == 'https://h/x?type=5'
+
+
+@pytest.mark.parametrize('call', [
+    lambda: api.fetch_documents_list('2026-09-01', max_retries=1),
+    lambda: api.fetch_document('S100ABC', max_retries=1),
+])
+def test_http_error_raised_by_urlopen_carries_no_key(monkeypatch, call):
+    """The live path: urllib raises its own HTTPError for a 401/500 before the
+    response-object branch is reachable, and that exception's url is the request
+    URL including the key. It must be redacted on re-raise too."""
+    monkeypatch.setenv('EDINET_API_KEY', 'secret-key-123')
+    def boom(req, timeout=None):
+        url = req.full_url if hasattr(req, 'full_url') else req
+        raise urllib.error.HTTPError(url, 401, 'Unauthorized', {}, None)
+    with patch.object(api.urllib.request, 'urlopen', side_effect=boom), patch.object(api.time, 'sleep'):
+        with pytest.raises(urllib.error.HTTPError) as ei:
+            call()
+    assert 'secret-key-123' not in (ei.value.url or '')
+    assert 'secret-key-123' not in (ei.value.filename or '')
+    assert 'secret-key-123' not in str(ei.value)
+    assert ei.value.code == 401
