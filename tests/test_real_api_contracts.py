@@ -115,9 +115,12 @@ class TestRealAPIContracts:
             
             doc_list = fetch_documents_list(date_str, api_key=self.api_key)
             
-            if doc_list['results']:
-                # Try to download first document
-                doc_id = doc_list['results'][0]['docID']
+            # Only documents EDINET marks csvFlag='1' have a type=5 form; a
+            # PDF-only filing (e.g. a 訂正発行登録書) raises DocumentNotFoundError
+            # by design, so the pick must honour the flag (found 2026-09-10).
+            with_csv = [d for d in doc_list['results'] if d.get('csvFlag') == '1']
+            if with_csv:
+                doc_id = with_csv[0]['docID']
                 zip_content = fetch_document(doc_id, api_key=self.api_key)
                 
                 # Should get binary ZIP content
