@@ -27,7 +27,7 @@ class AuthenticationError(APIError):
             message = (
                 "EDINET API authentication failed. "
                 "Please check your API key and ensure it's valid. "
-                "Get your API key from: https://disclosure.edinet-fsa.go.jp/"
+                "Get your API key from: https://api.edinet-fsa.go.jp/api/auth/index.aspx?mode=1"
             )
         super().__init__(message, status_code=401)
 

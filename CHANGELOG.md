@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.8.4 — 2026-09-10
+
+### Fixed
+
+- **Joint 5% filings now use the group totals.** `ownership_pct`, `prior_ownership_pct`, `ownership_change`, and `shares_held` now come from the group-total row, selected by XBRL context. On single-filer reports (no total row) they come from the lead filer's row. A joint filing with no total row gets `None` — no group figure was filed, and one holder's stake is not the group's — unless every holder's row is zero (an exit filed without a total row), which reads as 0. A blank total stays blank. Per-party figures are unchanged on `joint_holders`. Example: 光通信's 2026-09-03 report on コンピューターマネージメント, 13.09% from a group prior of 14.09%, a sale; 0.8.3 showed a prior of 6.70% and a 6.4-point gain. 375 of 400 sampled joint filings since 2024 had this.
+- **Second partner axis recognised.** `JointHolder<N>Member` now marks a joint filing and feeds `joint_holders`, alongside `FilerLargeVolumeHolder<N>Member`. Example: 三菱商事 with two UCC companies on ユニカフェ, group 60.04%; 0.8.3 saw one holder at 9.50%.
+- `important_proposal` is read across all parties on a joint filing; `purpose` is the lead filer's by label, not by position — including when the lead filer left it blank, where 0.8.3 would have shown a partner's text.
+- A thousands separator in a per-share field no longer aborts the securities parse; `1,234.5` now reads as 1234.5 (new `parse_decimal`, which also rejects NaN/Infinity).
+- `Entity.documents()` and `get_documents_for_date_range()` raise `AuthenticationError` on a rejected key, and `APIError` when every day in the window failed, instead of returning `[]`.
+- The API key is resolved per request (argument, `configure()`, environment); with no key the fetchers raise `AuthenticationError` before contacting EDINET instead of sending `None`.
+- `DOCUMENT_TYPES` and the `filter_documents` gate derive from `doc_types`; the old copy had 39 of 42 codes, so 290, 310 and 330 were being dropped. **The English names change too:** 21 of the old strings differ (e.g. `Large Holding Report` → `Large Shareholding Report`, `Securities Report (Amended)` → `Securities Report Amendment`). Code that matched on those strings must use the codes or the new names. The registry's Japanese names now match the FSA's docTypeCode table verbatim (`訂正有価証券報告書`, not `有価証券報告書の訂正報告書`; 21 entries), and four entries that named the wrong document are corrected: 070 is the change notification to an issuance registration notification, 080 the issuance registration statement, 370 the reference-date notification and 380 the change notification. The 5% change report (変更報告書) is filed under 350, never 370.
+- `download_edinet_codes` fetches `Edinetcode.zip` from `disclosure2dl.edinet-fsa.go.jp` (the old CSV path serves HTML) and writes atomically. `EDINET_CSV_URL` removed; `EDINET_CODES_ZIP_URL` added.
+- No root-logger warning on import; API key masked in raised `HTTPError` URLs, including the ones urllib raises itself for a 4xx/5xx; `AuthenticationError` points at the current key page.
+
+### Changed
+
+- `JointHolder.holder_number` is a dense 1, 2, 3, ... on every filing (lead filer first, then each axis in order), no longer the XBRL axis index; `joint_holder_count` always matches `is_joint_filing`.
+- New helper: `edinet_tools.parsers.extraction.parse_decimal`.
+
 ## v0.8.3 — 2026-09-03
 
 ### Changed

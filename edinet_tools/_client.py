@@ -7,7 +7,6 @@ initialized from EDINET_API_KEY or an explicit configure() call.
 """
 import json
 import logging
-import os
 from typing import Any, Dict, List, Optional, Union
 import datetime
 
@@ -26,7 +25,9 @@ class _ApiClient:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get('EDINET_API_KEY')
+        # None means "resolve per request": the low-level fetchers consult
+        # configure() and then the environment on every call (0.8.4).
+        self.api_key = api_key
 
     def get_documents_by_date(self,
                               date: Union[str, datetime.date],
@@ -141,8 +142,7 @@ def _get_client() -> _ApiClient:
     the EDINET_API_KEY env var."""
     global _client
     if _client is None:
-        api_key = _configured_api_key or os.environ.get('EDINET_API_KEY')
-        _client = _ApiClient(api_key=api_key)
+        _client = _ApiClient(api_key=None)  # per-request resolution via config.api_key()
     return _client
 
 

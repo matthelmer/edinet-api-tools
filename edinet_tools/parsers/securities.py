@@ -12,7 +12,7 @@ PROCESSING PHILOSOPHY: Store raw XBRL values faithfully. No interpretation.
 from dataclasses import dataclass, field
 from decimal import Decimal
 from datetime import date
-from typing import Any, Optional
+
 
 from .base import ParsedReport
 from .extraction import (
@@ -25,6 +25,7 @@ from .extraction import (
     parse_percentage,
     parse_date,
     coerce_numeric_value,
+    parse_decimal
 )
 from .validation import Bound, Identity, IDENTITY_TOLERANCE, apply_validation
 
@@ -861,10 +862,10 @@ def _extract_per_share_block(csv_files, standard, is_consolidated):
     provenance = {}
 
     nav_hit = string_hit(_NAV_TIERS, 'CurrentYearInstant', True)
-    values['net_assets_per_share'] = Decimal(nav_hit.value) if nav_hit else None
+    values['net_assets_per_share'] = parse_decimal(nav_hit.value) if nav_hit else None
 
     eps_hit = string_hit(_EPS_TIERS, 'CurrentYearDuration', True)
-    values['earnings_per_share'] = Decimal(eps_hit.value) if eps_hit else None
+    values['earnings_per_share'] = parse_decimal(eps_hit.value) if eps_hit else None
 
     # equity_ratio: C1 IFRS-preference stage (coerce), then the legacy
     # first-non-empty-raw-string scan (see the tier-table comments).
@@ -886,19 +887,19 @@ def _extract_per_share_block(csv_files, standard, is_consolidated):
         csv_files, ELEMENT_MAP['earnings_per_share_ifrs'],
         context_patterns=['CurrentYearDuration'],
     ))
-    values['ifrs_summary_basic_eps'] = Decimal(ifrs_eps_str) if ifrs_eps_str else None
+    values['ifrs_summary_basic_eps'] = parse_decimal(ifrs_eps_str)
 
     ifrs_roe_str = coerce_numeric_value(extract_value(
         csv_files, ELEMENT_MAP['roe_ifrs'],
         context_patterns=['CurrentYearDuration'],
     ))
-    values['ifrs_summary_roe'] = Decimal(ifrs_roe_str) if ifrs_roe_str else None
+    values['ifrs_summary_roe'] = parse_decimal(ifrs_roe_str)
 
     ifrs_bps_str = coerce_numeric_value(extract_value(
         csv_files, ELEMENT_MAP['bps_ifrs'],
         context_patterns=['CurrentYearInstant'],
     ))
-    values['ifrs_summary_bps'] = Decimal(ifrs_bps_str) if ifrs_bps_str else None
+    values['ifrs_summary_bps'] = parse_decimal(ifrs_bps_str)
 
     return values, provenance
 

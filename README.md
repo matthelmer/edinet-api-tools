@@ -27,8 +27,10 @@ pip install edinet-tools
 
 Requires Python 3.10+. Standard library only.
 
-> **Use 0.8.3 or later.** EDINET moved its API to `api.edinet-fsa.go.jp` at the end of
-> August 2026; earlier versions call the old host and cannot fetch anything.
+> **Use 0.8.4 or later.** EDINET moved its API to `api.edinet-fsa.go.jp` at the end of
+> August 2026; versions before 0.8.1 call the old host and cannot fetch anything. 0.8.4
+> also fixes the code-list download (the old CSV path now serves HTML) and reads joint
+> 5%+ filings as group totals — see the CHANGELOG.
 >
 > Upgrading from 0.7.x? 0.8.0 contains breaking changes; see [MIGRATING.md](https://github.com/matthelmer/edinet-tools/blob/main/MIGRATING.md).
 
@@ -59,7 +61,7 @@ EDINET defines 42 document types spanning corporate disclosure, capital markets 
 | 135, 136 | Confirmation Documents | CEO/CFO attestation (primarily PDF) |
 | 200, 210 | Parent Company Reports | Parent-subsidiary relationships |
 | 350, 360 | Large Shareholding | 5%+ ownership filings — filer, target, ownership percentage |
-| 370, 380 | Shareholding Changes | Position changes for large holders |
+| 370, 380 | Reference Date / Change Notifications | Notifications under the large shareholding rules (the 5% change report itself is filed as 350) |
 | 240, 250 | Tender Offer Registration | Public tender offer filings |
 | 260 | Tender Offer Withdrawal | Withdrawal of tender offers |
 | 270, 280 | Tender Offer Reports | Tender offer completion — outcome, final holdings |

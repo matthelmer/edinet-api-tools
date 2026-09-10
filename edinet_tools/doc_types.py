@@ -44,7 +44,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "020": DocType(
         code="020",
         name_en="Securities Notification Amendment",
-        name_jp="有価証券通知書の訂正通知書",
+        name_jp="変更通知書（有価証券通知書）",
         description="Amendment to securities notification",
     ),
 
@@ -58,13 +58,13 @@ _DOC_TYPES: dict[str, DocType] = {
     "040": DocType(
         code="040",
         name_en="Securities Registration Statement Amendment",
-        name_jp="有価証券届出書の訂正届出書",
+        name_jp="訂正有価証券届出書",
         description="Amendment to securities registration statement",
     ),
     "050": DocType(
         code="050",
         name_en="Securities Registration Withdrawal",
-        name_jp="有価証券届出書の取下届出書",
+        name_jp="届出の取下げ願い",
         description="Withdrawal of securities registration statement",
     ),
 
@@ -77,20 +77,20 @@ _DOC_TYPES: dict[str, DocType] = {
     ),
     "070": DocType(
         code="070",
-        name_en="Shelf Registration",
-        name_jp="発行登録書",
-        description="Shelf registration for securities issuance",
+        name_en="Amendment Notification (Issuance Registration Notification)",
+        name_jp="変更通知書（発行登録通知書）",
+        description="Change notification for an issuance registration notification",
     ),
     "080": DocType(
         code="080",
         name_en="Issuance Registration Statement",
-        name_jp="発行登録追補書類",
-        description="Supplementary document for issuance registration",
+        name_jp="発行登録書",
+        description="Issuance (shelf) registration statement",
     ),
     "090": DocType(
         code="090",
         name_en="Issuance Registration Statement Amendment",
-        name_jp="発行登録書の訂正届出書",
+        name_jp="訂正発行登録書",
         description="Amendment to issuance registration statement",
     ),
     "100": DocType(
@@ -116,7 +116,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "130": DocType(
         code="130",
         name_en="Securities Report Amendment",
-        name_jp="有価証券報告書の訂正報告書",
+        name_jp="訂正有価証券報告書",
         description="Amendment to annual securities report",
     ),
     "135": DocType(
@@ -128,7 +128,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "136": DocType(
         code="136",
         name_en="Confirmation Document Amendment",
-        name_jp="確認書の訂正報告書",
+        name_jp="訂正確認書",
         description="Amendment to confirmation document",
     ),
     "140": DocType(
@@ -140,7 +140,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "150": DocType(
         code="150",
         name_en="Quarterly Report Amendment",
-        name_jp="四半期報告書の訂正報告書",
+        name_jp="訂正四半期報告書",
         description="Amendment to quarterly report",
     ),
     "160": DocType(
@@ -152,7 +152,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "170": DocType(
         code="170",
         name_en="Semi-Annual Report Amendment",
-        name_jp="半期報告書の訂正報告書",
+        name_jp="訂正半期報告書",
         description="Amendment to semi-annual report",
     ),
     "180": DocType(
@@ -164,7 +164,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "190": DocType(
         code="190",
         name_en="Extraordinary Report Amendment",
-        name_jp="臨時報告書の訂正報告書",
+        name_jp="訂正臨時報告書",
         description="Amendment to extraordinary report",
     ),
     "200": DocType(
@@ -176,7 +176,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "210": DocType(
         code="210",
         name_en="Parent Company Status Report Amendment",
-        name_jp="親会社等状況報告書の訂正報告書",
+        name_jp="訂正親会社等状況報告書",
         description="Amendment to parent company status report",
     ),
 
@@ -190,7 +190,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "230": DocType(
         code="230",
         name_en="Treasury Stock Report Amendment",
-        name_jp="自己株券買付状況報告書の訂正報告書",
+        name_jp="訂正自己株券買付状況報告書",
         description="Amendment to treasury stock report",
     ),
     "235": DocType(
@@ -202,7 +202,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "236": DocType(
         code="236",
         name_en="Internal Control Report Amendment",
-        name_jp="内部統制報告書の訂正報告書",
+        name_jp="訂正内部統制報告書",
         description="Amendment to internal control report",
     ),
 
@@ -234,7 +234,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "280": DocType(
         code="280",
         name_en="Tender Offer Report Amendment",
-        name_jp="公開買付報告書の訂正報告書",
+        name_jp="訂正公開買付報告書",
         description="Amendment to tender offer completion report",
     ),
     "290": DocType(
@@ -246,7 +246,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "300": DocType(
         code="300",
         name_en="Statement of Opinion Report Amendment",
-        name_jp="意見表明報告書の訂正報告書",
+        name_jp="訂正意見表明報告書",
         description="Amendment to statement of opinion report",
     ),
     "310": DocType(
@@ -258,7 +258,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "320": DocType(
         code="320",
         name_en="Response to Questions Report Amendment",
-        name_jp="対質問回答報告書の訂正報告書",
+        name_jp="訂正対質問回答報告書",
         description="Amendment to response to questions report",
     ),
     "330": DocType(
@@ -270,7 +270,7 @@ _DOC_TYPES: dict[str, DocType] = {
     "340": DocType(
         code="340",
         name_en="Exemption Application Amendment",
-        name_jp="別途買付け禁止の特例を受けるための申出書の訂正届出書",
+        name_jp="訂正別途買付け禁止の特例を受けるための申出書",
         description="Amendment to exemption application",
     ),
 
@@ -284,20 +284,20 @@ _DOC_TYPES: dict[str, DocType] = {
     "360": DocType(
         code="360",
         name_en="Large Shareholding Report Amendment",
-        name_jp="大量保有報告書の訂正報告書",
+        name_jp="訂正大量保有報告書",
         description="Amendment to large shareholding report",
     ),
     "370": DocType(
         code="370",
-        name_en="Large Shareholding Change Report",
-        name_jp="変更報告書",
-        description="Report on changes to large shareholding position",
+        name_en="Reference Date Notification",
+        name_jp="基準日の届出書",
+        description="Notification of a reference (record) date under the large shareholding rules",
     ),
     "380": DocType(
         code="380",
-        name_en="Large Shareholding Change Report Amendment",
-        name_jp="変更報告書の訂正報告書",
-        description="Amendment to large shareholding change report",
+        name_en="Change Notification",
+        name_jp="変更の届出書",
+        description="Notification of a change to a reference date notification",
     ),
 }
 

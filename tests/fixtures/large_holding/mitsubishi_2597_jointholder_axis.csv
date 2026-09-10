@@ -1,0 +1,128 @@
+要素ID	項目名	コンテキストID	相対年度	連結・個別	期間・時点	ユニットID	単位	値
+jplvh_cor:TotalNumberOfFilersAndJointHoldersCoverPage	提出者及び共同保有者の総数（名）、表紙	FilingDateInstant	提出日時点	その他	時点	pure		2
+jpdei_cor:NumberOfSubmissionDEI	提出回数、DEI	FilingDateInstant	提出日時点	その他	時点	pure		1
+jplvh_cor:StocksOrInvestmentSecuritiesEtcArticle27233MainClause	株券又は投資証券等、法第27条の23第3項本文	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	shares		1318100
+jplvh_cor:TotalArticle27233MainClause	合計、法第27条の23第3項本文	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	shares		1318100
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	shares		1318100
+jplvh_cor:TotalNumberOfOutstandingStocksEtc	発行済株式等総数	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	shares		13869200
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	pure		0.0950
+jplvh_cor:HoldingRatioOfShareCertificatesEtcPerLastReport	直前の報告書に記載された株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	pure		0.0950
+jplvh_cor:AmountOfOwnFund	自己資金額	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	JPY	円	1499998000
+jplvh_cor:TotalAmountOfFundingForAcquisition	取得資金合計	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	JPY	円	1499998000
+jplvh_cor:StocksOrInvestmentSecuritiesEtcArticle27233MainClause	株券又は投資証券等、法第27条の23第3項本文	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	shares		7008600
+jplvh_cor:TotalArticle27233MainClause	合計、法第27条の23第3項本文	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	shares		7008600
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	shares		7008600
+jplvh_cor:TotalNumberOfOutstandingStocksEtc	発行済株式等総数	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	shares		13869200
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	pure		0.5053
+jplvh_cor:StocksOrInvestmentSecuritiesEtcArticle27233MainClause	株券又は投資証券等、法第27条の23第3項本文	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	shares		0
+jplvh_cor:TotalArticle27233MainClause	合計、法第27条の23第3項本文	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	shares		0
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	shares		0
+jplvh_cor:TotalNumberOfOutstandingStocksEtc	発行済株式等総数	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	shares		13869200
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	pure		0.0000
+jplvh_cor:HoldingRatioOfShareCertificatesEtcPerLastReport	直前の報告書に記載された株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	pure		0.5053
+jplvh_cor:StocksOrInvestmentSecuritiesEtcArticle27233MainClause	株券又は投資証券等、法第27条の23第3項本文	FilingDateInstant	提出日時点	その他	時点	shares		8326700
+jplvh_cor:TotalArticle27233MainClause	合計、法第27条の23第3項本文	FilingDateInstant	提出日時点	その他	時点	shares		8326700
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant	提出日時点	その他	時点	shares		8326700
+jplvh_cor:TotalNumberOfOutstandingStocksEtc	発行済株式等総数	FilingDateInstant	提出日時点	その他	時点	shares		13869200
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant	提出日時点	その他	時点	pure		0.6004
+jplvh_cor:HoldingRatioOfShareCertificatesEtcPerLastReport	直前の報告書に記載された株券等保有割合	FilingDateInstant	提出日時点	その他	時点	pure		0.6004
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	shares		1318100
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	pure		0.0950
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	shares		7008600
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	pure		0.5053
+jplvh_cor:TotalNumberOfStocksEtcHeld	保有株券等の数（総数）	FilingDateInstant	提出日時点	その他	時点	shares		8326700
+jplvh_cor:HoldingRatioOfShareCertificatesEtc	株券等保有割合	FilingDateInstant	提出日時点	その他	時点	pure		0.6004
+jplvh_cor:DocumentTitleCoverPage	提出書類、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	変更報告書No.7
+jplvh_cor:ClauseOfStipulationCoverPage	根拠条文、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	法第27条の25第1項
+jplvh_cor:PlaceOfFilingCoverPage	提出先、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	関東財務局長
+jplvh_cor:NameCoverPage	氏名又は名称、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	三菱商事株式会社 代表取締役 社長 中西勝也
+jplvh_cor:ResidentialAddressOrAddressOfRegisteredHeadquarterCoverPage	住所又は本店所在地、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	東京都千代田区丸の内二丁目3番1号
+jplvh_cor:DateWhenFilingRequirementAroseCoverPage	報告義務発生日、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	2023-12-22
+jplvh_cor:FilingDateCoverPage	提出日、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	2024-01-04
+jplvh_cor:ArrangementOfFilingCoverPage	提出形態、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	その他
+jplvh_cor:ReasonForFilingChangeReportCoverPage	変更報告書提出事由、表紙	FilingDateInstant	提出日時点	その他	時点	－	－	共同保有者の追加及び減少(共同保有者であるUCC Capital株式会社(旧商号:ユーシーシーホールディングス株式会社)が会社分割により保有する保有株券等及び重要な契約をUCCジャパン株式会社に承継したため、UCC Capital株式会社が共同保有者でなくなり、UCCジャパン株式会社が共同保有者になったもの)当該株券等に関する担保契約等重要な契約の変更減少する共同保有者の商号の変更
+jpdei_cor:DocumentTypeDEI	様式、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	第一号様式
+jpdei_cor:EDINETCodeDEI	EDINETコード、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	E02529
+jpdei_cor:SecurityCodeDEI	証券コード、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	80580
+jpdei_cor:FilerNameInJapaneseDEI	提出者名（日本語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	三菱商事株式会社 代表取締役 社長 中西勝也
+jpdei_cor:FilerNameInEnglishDEI	提出者名（英語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	Mitsubishi Corporation
+jplvh_cor:EDINETCodeDEI	EDINETコード、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	E02529
+jplvh_cor:SecurityCodeDEI	証券コード、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	80580
+jplvh_cor:FilerNameInJapaneseDEI	氏名又は名称（日本語表記）、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	三菱商事株式会社
+jplvh_cor:FilerNameInEnglishDEI	氏名又は名称（英語表記）、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	Mitsubishi Corporation
+jplvh_cor:EDINETCodeDEI	EDINETコード、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	E39350
+jplvh_cor:SecurityCodeDEI	証券コード、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	－
+jplvh_cor:FilerNameInJapaneseDEI	氏名又は名称（日本語表記）、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	UCCジャパン株式会社
+jplvh_cor:FilerNameInEnglishDEI	氏名又は名称（英語表記）、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	UCC Japan Co.,Ltd.
+jplvh_cor:EDINETCodeDEI	EDINETコード、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	E11642
+jplvh_cor:SecurityCodeDEI	証券コード、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	－
+jplvh_cor:FilerNameInJapaneseDEI	氏名又は名称（日本語表記）、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	UCC Capital株式会社
+jplvh_cor:FilerNameInEnglishDEI	氏名又は名称（英語表記）、大量保有DEI	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	UCC Capital Co.,Ltd.
+jpdei_cor:FundCodeDEI	ファンドコード、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:FundNameInJapaneseDEI	ファンド名称（日本語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:FundNameInEnglishDEI	ファンド名称（英語表記）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CabinetOfficeOrdinanceDEI	府令、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	株券等の大量保有の状況の開示に関する内閣府令
+jpdei_cor:AccountingStandardsDEI	会計基準、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:WhetherConsolidatedFinancialStatementsArePreparedDEI	連結決算の有無、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI	別記事業（連結）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:IndustryCodeWhenFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI	別記事業（個別）、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CurrentFiscalYearStartDateDEI	当事業年度開始日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CurrentPeriodEndDateDEI	当会計期間終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:TypeOfCurrentPeriodDEI	当会計期間の種類、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:CurrentFiscalYearEndDateDEI	当事業年度終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:PreviousFiscalYearStartDateDEI	前事業年度開始日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:ComparativePeriodEndDateDEI	比較対象会計期間終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:PreviousFiscalYearEndDateDEI	前事業年度終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:NextFiscalYearStartDateDEI	次の事業年度開始日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:EndDateOfQuarterlyOrSemiAnnualPeriodOfNextFiscalYearDEI	次の四半期又は中間期の会計期間終了日、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:AmendmentFlagDEI	訂正の有無、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	false
+jpdei_cor:IdentificationOfDocumentSubjectToAmendmentDEI	訂正対象書類の書類管理番号、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	－
+jpdei_cor:ReportAmendmentFlagDEI	記載事項訂正のフラグ、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	false
+jpdei_cor:XBRLAmendmentFlagDEI	XBRL訂正のフラグ、DEI	FilingDateInstant	提出日時点	その他	時点	－	－	false
+jplvh_cor:NameOfIssuer	発行者の名称	FilingDateInstant	提出日時点	その他	時点	－	－	株式会社ユニカフェ
+jplvh_cor:SecurityCodeOfIssuer	発行者の証券コード	FilingDateInstant	提出日時点	その他	時点	－	－	2597
+jplvh_cor:ListedOrOTC	上場・店頭の別	FilingDateInstant	提出日時点	その他	時点	－	－	上場
+jplvh_cor:StockListing	上場金融商品取引所	FilingDateInstant	提出日時点	その他	時点	－	－	東証スタンダード
+jplvh_cor:IndividualOrCorporation	個人・法人の別	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	法人（株式会社）
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	三菱商事株式会社
+jplvh_cor:ResidentialAddressOrAddressOfRegisteredHeadquarter	住所又は本店所在地	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	東京都千代田区丸の内二丁目3番1号
+jplvh_cor:DateOfEstablishment	設立年月日	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	1950-04-01
+jplvh_cor:NameOfRepresentative	代表者氏名	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	中西 勝也
+jplvh_cor:JobTitleOfRepresentative	代表者役職	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	代表取締役 社長
+jplvh_cor:DescriptionOfBusiness	事業内容	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	天然ガス、総合素材、化学ソリューション、金属資源、産業インフラ、自動車・モビリティ、食品産業、コンシューマー産業、電力ソリューション、複合都市開発の10グループに産業DX部門、次世代エネルギー部門を加えた体制で、幅広い産業を事業領域としており、貿易のみならず、パートナーと共に、世界中の現場で開発や生産・製造などの役割も自ら担っています。
+jplvh_cor:ContactInformationAndPerson	事務上の連絡先及び担当者名	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	三菱商事株式会社 財務部為替資金チーム 吉川 和洋
+jplvh_cor:TelephoneNumber	電話番号	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	03-3210-2901
+jplvh_cor:PurposeOfHolding	保有目的	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	主として取引関係等円滑化及び重要提案行為等を行うことを目的として、長期に保有。
+jplvh_cor:ActOfMakingImportantProposalEtcNA	重要提案行為等（該当なし）	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	該当事項なし
+jplvh_cor:BaseDate	基準日	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	2023-12-22
+jplvh_cor:NotesHoldingRatioOfShareCertificatesEtcTextBlock	欄外注記、株券等保有割合 [テキストブロック]	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	前回の変更報告書No.6については、ユーシーシーホールディングス株式会社より連名方式で提出を行っております。(管轄は近畿財務局となります。)
+jplvh_cor:DetailsOfAcquisitionsAndDisposalsOfStocksEtcIssuedByIssuerOfSaidStocksEtcDuringLast60DaysNATextBlock	当該株券等の発行者の発行する株券等に関する最近60日間の取得又は処分の状況（該当なし） [テキストブロック]	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	    （５）【当該株券等の発行者の発行する株券等に関する最近60日間の取得又は処分の状況】            年月日    株券等の種類    数量    割合    市場内外取引の別    取得又は処分の別    単価                                                    
+jplvh_cor:SignificantContractsRelatedToSaidStocksEtcSuchAsCollateralAgreementsTextBlock	当該株券等に関する担保契約等重要な契約 [テキストブロック]	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	三菱商事株式会社は、ユーシーシーホールディングス株式会社との間で、平成30年11月9日付にて議決権行使に関する合意書を締結しており、当該議決権行使に関する合意書に基づき、三菱商事株式会社は、ユーシーシーホールディングス株式会社との間で、三菱商事株式会社が指名する取締役候補者1名が発行者の取締役として選任されるようユーシーシーホールディングス株式会社が保有する議決権を行使すること、及び一定の場合にはユーシーシーホールディングス株式会社が三菱商事株式会社の保有する株式を買い取る義務を負うこと等を合意しておりましたが、令和5年12月22日を効力発生日とするユーシーシーホールディングス株式会社の会社分割により、発行者株式を含む権利義務の一部をUCCジャパン株式会社に承継したことに伴い、議決権行使に関する合意書についても同社へ承継されております。
+jplvh_cor:BreakdownOfBorrowingsNATextBlock	借入金の内訳（該当なし） [テキストブロック]	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	  ②【借入金の内訳】      名称（支店名）  業種  代表者氏名  所在地  借入目的  金額（千円）                      
+jplvh_cor:NamesEtcOfCreditorsNATextBlock	借入先の名称等（該当なし） [テキストブロック]	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	    ③【借入先の名称等】            名称（支店名）    代表者氏名    所在地                                
+jplvh_cor:IndividualOrCorporation	個人・法人の別	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	法人（株式会社）
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	UCCジャパン株式会社
+jplvh_cor:ResidentialAddressOrAddressOfRegisteredHeadquarter	住所又は本店所在地	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	兵庫県神戸市中央区多聞通五丁目１番６号（同所は登記上の本店所在地であり、実際の業務は下記で行なっております。）兵庫県神戸市中央区港島中町七丁目７番７
+jplvh_cor:DateOfEstablishment	設立年月日	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	1964-02-19
+jplvh_cor:NameOfRepresentative	代表者氏名	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	上島　昌佐郎
+jplvh_cor:JobTitleOfRepresentative	代表者役職	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	代表取締役
+jplvh_cor:DescriptionOfBusiness	事業内容	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	日本国内の各子会社・関係会社の株式保有、統括、海外向け輸出 他
+jplvh_cor:ContactInformationAndPerson	事務上の連絡先及び担当者名	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	経営管理本部　和多　徹
+jplvh_cor:TelephoneNumber	電話番号	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	078-361-6465
+jplvh_cor:BaseDate	基準日	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	2023-12-22
+jplvh_cor:IndividualOrCorporation	個人・法人の別	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	法人（株式会社）
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	UCC Capital株式会社
+jplvh_cor:ResidentialAddressOrAddressOfRegisteredHeadquarter	住所又は本店所在地	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	兵庫県神戸市中央区多聞通五丁目１番６号（同所は登記上の本店所在地であり、実際の業務は下記で行なっております。）兵庫県神戸市中央区港島中町七丁目７番７
+jplvh_cor:FormerName	旧氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	UCCホールディングス株式会社（登記簿上の表記は、ユーシーシーホールディングス株式会社）
+jplvh_cor:DateOfEstablishment	設立年月日	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	1951-05-28
+jplvh_cor:NameOfRepresentative	代表者氏名	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	上島 豪太
+jplvh_cor:JobTitleOfRepresentative	代表者役職	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	代表取締役
+jplvh_cor:DescriptionOfBusiness	事業内容	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	グループ各地域統括会社の株式保有、財務機能 他
+jplvh_cor:ContactInformationAndPerson	事務上の連絡先及び担当者名	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	UCCジャパン株式会社 経理管理本部 和多 徹
+jplvh_cor:TelephoneNumber	電話番号	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	078-361-6465
+jplvh_cor:BaseDate	基準日	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder2Member	提出日時点	その他	時点	－	－	2023-12-22
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	三菱商事株式会社
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	UCCジャパン株式会社
+jplvh_cor:BaseDate	基準日	FilingDateInstant	提出日時点	その他	時点	－	－	2023-12-22
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000FilerLargeVolumeHolder1Member	提出日時点	その他	時点	－	－	三菱商事株式会社
+jplvh_cor:Name	氏名又は名称	FilingDateInstant_jplvh010000-lvh_E02529-000JointHolder1Member	提出日時点	その他	時点	－	－	UCCジャパン株式会社

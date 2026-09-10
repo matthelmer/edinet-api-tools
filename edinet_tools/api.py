@@ -3,13 +3,45 @@ import datetime
 import json
 import os
 import urllib.parse
+import re
 import urllib.request
 import logging
 import time
 from typing import List, Dict, Union
 
-from .config import EDINET_API_KEY, SUPPORTED_DOC_TYPES
+from . import config
+from .config import SUPPORTED_DOC_TYPES
 from .exceptions import APIError, AuthenticationError, DocumentNotFoundError
+
+
+def _require_api_key(override: str | None) -> str:
+    """The key to send, or AuthenticationError before any request is made — a
+    missing key must never be urlencoded as the string 'None' (0.8.4)."""
+    key = config.api_key(override)
+    if not key:
+        raise AuthenticationError(
+            "EDINET_API_KEY is not set. Set the environment variable, or call "
+            "edinet_tools.configure(api_key=...), or pass api_key=. "
+            "Get a key from https://api.edinet-fsa.go.jp/api/auth/index.aspx?mode=1")
+    return key
+
+
+def _redact_key(url: str) -> str:
+    """The URL with the Subscription-Key value masked — for exceptions and logs."""
+    return re.sub(r'(Subscription-Key=)[^&]*', r'\1***', url)
+
+
+def _redact_exception(exc: BaseException) -> None:
+    """Mask the key on an exception urllib raised itself. `HTTPError` carries the
+    request URL (key included) on both `url` and `filename`; `URLError` on
+    `filename` when it has one. In place, so the original traceback survives."""
+    for attr in ('url', 'filename'):
+        value = getattr(exc, attr, None)
+        if isinstance(value, str):
+            try:
+                setattr(exc, attr, _redact_key(value))
+            except AttributeError:
+                pass
 
 # EDINET API v2 lives on api.edinet-fsa.go.jp. The old disclosure.edinet-fsa.go.jp
 # host stopped serving the API at the end of August 2026: it now 301s to
@@ -117,7 +149,7 @@ def fetch_documents_list(date: Union[str, datetime.date],
     params = {
         "date": date_str,
         "type": type,   # '1' is metadata only; '2' is metadata and results
-        "Subscription-Key": api_key or EDINET_API_KEY,
+        "Subscription-Key": _require_api_key(api_key),
     }
     query_string = urllib.parse.urlencode(params)
     full_url = f"{url}?{query_string}"
@@ -143,7 +175,7 @@ def fetch_documents_list(date: Union[str, datetime.date],
                          continue # Retry
                     else:
                          # Non-retryable error or last attempt
-                         raise urllib.error.HTTPError(full_url, response.getcode(), f"HTTP Error: {response.getcode()}", response.headers, None)
+                         raise urllib.error.HTTPError(_redact_key(full_url), response.getcode(), f"HTTP Error: {response.getcode()}", response.headers, None)
 
 
                 data = json.loads(response.read().decode('utf-8'))
@@ -163,6 +195,7 @@ def fetch_documents_list(date: Union[str, datetime.date],
                 time.sleep(backoff)
             else:
                 logger.error("Max retries reached for fetching documents.")
+                _redact_exception(e)
                 raise # Re-raise the last exception
         except Exception as e:
             logger.error(f"An unexpected error occurred fetching documents for {date_str}: {e}")
@@ -199,7 +232,7 @@ def fetch_document(doc_id: str, type: int = 5, max_retries: int = 3, delay_secon
     url = f'{EDINET_API_BASE}/documents/{doc_id}'
     params = {
       "type": type,
-      "Subscription-Key": api_key or EDINET_API_KEY,
+      "Subscription-Key": _require_api_key(api_key),
     }
     query_string = urllib.parse.urlencode(params)
     full_url = f'{url}?{query_string}'
@@ -223,7 +256,7 @@ def fetch_document(doc_id: str, type: int = 5, max_retries: int = 3, delay_secon
                           time.sleep(backoff)
                           continue # Retry
                      else:
-                          raise urllib.error.HTTPError(full_url, response.getcode(), f"HTTP Error: {response.getcode()}", response.headers, None)
+                          raise urllib.error.HTTPError(_redact_key(full_url), response.getcode(), f"HTTP Error: {response.getcode()}", response.headers, None)
 
                  content = response.read()
                  if is_edinet_error_body(content):
@@ -243,6 +276,7 @@ def fetch_document(doc_id: str, type: int = 5, max_retries: int = 3, delay_secon
                 time.sleep(backoff)
             else:
                 logger.error("Max retries reached for fetching document.")
+                _redact_exception(e)
                 raise
         except Exception as e:
             logger.error(f"An unexpected error occurred fetching document {doc_id}: {e}")
@@ -362,8 +396,11 @@ def get_documents_for_date_range(start_date: datetime.date,
                                  api_key: str = None) -> List[Dict]:
     """Retrieve and filter documents for a date range."""
     matching_docs = []
+    failures: list = []
+    days_attempted = 0
     current_date = start_date
     while current_date <= end_date:
+        days_attempted += 1
         try:
             docs_res = fetch_documents_list(date=current_date, api_key=api_key)
             if docs_res and docs_res.get('results'):
@@ -379,11 +416,19 @@ def get_documents_for_date_range(start_date: datetime.date,
             elif not docs_res:
                  logger.warning(f"Empty response received for {current_date}.")
 
-        except Exception as e:
-            logger.error(f"Error processing documents for date {current_date}: {e}")
-            # Continue to next date even if one date fails
+        except AuthenticationError:
+            raise  # a rejected key is not a bad day; every further date would fail the same way
+        except (APIError, OSError, json.JSONDecodeError) as e:
+            # Transient per-day failure: tolerate it, but never let a range where
+            # EVERY day failed read as a quiet period (the silent-empty class
+            # 0.8.1 closed at the fetcher layer).
+            failures.append((current_date, e))
+            logger.warning(f"Failed to fetch documents for {current_date}: {e}")
         finally:
              current_date += datetime.timedelta(days=1)
 
+    if failures and len(failures) == days_attempted:
+        first_date, first_err = failures[0]
+        raise APIError(f"Every date in the range failed ({len(failures)} days); first: {first_date}: {first_err}") from first_err
     logger.info(f"Finished retrieving documents for date range. Total matching documents: {len(matching_docs)}")
     return matching_docs
