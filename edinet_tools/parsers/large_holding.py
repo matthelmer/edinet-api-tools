@@ -11,7 +11,7 @@ PROCESSING PHILOSOPHY: Store raw XBRL values faithfully. No interpretation.
 """
 import re
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import date
 
 
@@ -260,13 +260,35 @@ def _holder_keys(csv_files: list) -> set[tuple[int, int]]:
     return keys
 
 
+def _all_holders_zero(csv_files: list, element_id: str) -> str | None:
+    """'0' when the element is filed on at least one holder row and every
+    holder row's value is zero — a group whose every member holds nothing
+    holds nothing, and that is read off the filing, not summed. Otherwise
+    None: the holders' figures differ and no group figure was filed."""
+    values = []
+    for csv_file in csv_files or []:
+        for row in csv_file.get('data', []) or []:
+            if row.get('要素ID') != element_id:
+                continue
+            if _HOLDER_AXIS_RE.search(row.get('コンテキストID', '') or ''):
+                values.append(row.get('値'))
+    if not values:
+        return None
+    try:
+        return '0' if all(Decimal(str(v).replace(',', '').strip()) == 0 for v in values) else None
+    except (InvalidOperation, ValueError):
+        return None
+
+
 def _group_value(csv_files: list, key: str) -> str | None:
     """A holding figure for the whole group.
 
     Tier 1: the un-dimensioned (total) row. Tier 2, single-filer filings only:
     the one holder's own row — the only row such a filing carries, on either
     axis. A joint filing with no total row has filed no group figure, so the
-    result is None rather than one holder's stake. Tier 3: positional
+    result is None rather than one holder's stake — except when every
+    holder's row is zero (an exit filed without a total row: S100QOTG,
+    S100T562), where the group holds nothing and the figure is 0. Tier 3: positional
     first-match, for legacy filings with no axis at all. The first tier that
     has a ROW wins, even when that row is blank; a filed-but-empty total is
     an empty total, not a licence to report one holder's stake as the group's.
@@ -282,7 +304,7 @@ def _group_value(csv_files: list, key: str) -> str | None:
         return v
     holders = _holder_keys(csv_files)
     if len(holders) > 1:
-        return None
+        return _all_holders_zero(csv_files, element_id)
     if holders:
         (axis, n), = holders
         suffix = f'FilerLargeVolumeHolder{n}Member' if axis == 0 else f'JointHolder{n}Member'

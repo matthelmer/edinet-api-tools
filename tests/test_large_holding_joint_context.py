@@ -184,3 +184,23 @@ class TestJointFilingWithoutTotalRow:
         assert r.ownership_pct == Decimal('0.0512')
         assert r.prior_ownership_pct == Decimal('0.0498')
         assert r.shares_held == 512
+
+    def test_joint_exit_without_total_row_reads_zero_when_every_holder_is_zero(self):
+        """S100QOTG (野村證券 + Nomura International, 2023-05-08) and S100T562
+        (三菱ＵＦＪ銀行 + 2, 2024-04-01): exit filings with no un-dimensioned row and
+        every holder at 0. A group whose every member holds nothing holds nothing —
+        that is the filed fact, not an inference — so the group figure is 0, not
+        None (None would drop the exit from a consumer that requires a stake).
+        The priors differ per holder and no group prior was filed: None."""
+        r = _parse([(RATIO, H1, '0.00'), (PRIOR, H1, '0.0142'), (SHARES, H1, '100'),
+                    (RATIO, H2, '0.00'), (PRIOR, H2, '0.0382'), (SHARES, H2, '100')])
+        assert r.is_joint_filing is True
+        assert r.ownership_pct == Decimal('0')
+        assert r.prior_ownership_pct is None
+        assert r.ownership_change is None
+        r = _parse([(SHARES, H1, '0'), (SHARES, H2, '0'), (SHARES, H3, '0')])
+        assert r.shares_held == 0
+
+    def test_joint_without_total_row_and_a_malformed_holder_value_is_none(self):
+        r = _parse([(RATIO, H1, 'abc'), (RATIO, H2, '0')])
+        assert r.ownership_pct is None

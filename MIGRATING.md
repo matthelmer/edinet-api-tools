@@ -17,7 +17,7 @@ caller can observe; each is a defect fixed rather than a redesign, and the
   `LargeHoldingReport` are the group total (the un-dimensioned row). Before
   0.8.4 the prior was holder 1's own figure. A joint filing with no total
   row now yields `None` for these four fields (0.8.3 reported one holder's
-  stake). If you stored these, re-parse joint filings; per-holder figures
+  stake), or 0 when every holder's row is zero. If you stored these, re-parse joint filings; per-holder figures
   are unchanged on `joint_holders`.
   `holder_number` is now a dense `1..K` ordering (primary filer first) rather
   than the filed axis index — a gapped axis `(1, 3)` is emitted as `(1, 2)`.
