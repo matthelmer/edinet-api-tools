@@ -30,7 +30,7 @@ Requires Python 3.10+. Standard library only.
 > **Use 0.8.4 or later.** EDINET moved its API to `api.edinet-fsa.go.jp` at the end of
 > August 2026; versions before 0.8.1 call the old host and cannot fetch anything. 0.8.4
 > also fixes the code-list download (the old CSV path now serves HTML) and reads joint
-> 5%+ filings at group grain — see the CHANGELOG.
+> 5%+ filings as group totals — see the CHANGELOG.
 >
 > Upgrading from 0.7.x? 0.8.0 contains breaking changes; see [MIGRATING.md](https://github.com/matthelmer/edinet-tools/blob/main/MIGRATING.md).
 
